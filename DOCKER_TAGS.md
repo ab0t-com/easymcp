@@ -1,6 +1,6 @@
 # Docker Hub Tags
 
-Generated at: `2026-05-18T07:05:13Z`
+Generated at: `2026-05-18T08:24:35Z`
 
 Repository: `ab0tcom/easymcp`
 

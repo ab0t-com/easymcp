@@ -32,6 +32,7 @@ EASYMCP_PUBLIC_REPO_DIR=PUBLIC_REPO ./scripts/sync-public-repo.sh
 
 - `README.md`
 - `README-PMM.md`
+- `CHANGELOG.md`
 - `ENTERPRISE.md`
 - `SECURITY.md`
 - `REFRESH_BUILD.md`
@@ -54,7 +55,7 @@ EASYMCP_PUBLIC_REPO_DIR=PUBLIC_REPO ./scripts/sync-public-repo.sh
 
 ## Generated From
 
-Generated at: `2026-05-18T07:05:13Z`
+Generated at: `2026-05-18T08:24:35Z`
 
 Private source branch: `feature/auth-work`
 

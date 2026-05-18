@@ -16,6 +16,8 @@ This is the public artifact and support repository. It is intentionally not the 
 
 For the product/marketing overview, read [`README-PMM.md`](README-PMM.md).
 
+For public release communication, read [`CHANGELOG.md`](CHANGELOG.md).
+
 For enterprise support, managed deployments, commercial terms, and agent infrastructure work, read [`ENTERPRISE.md`](ENTERPRISE.md).
 
 ## License
@@ -88,6 +90,7 @@ easymcp agent install codex auth-service
 .
 ├── README.md
 ├── README-PMM.md
+├── CHANGELOG.md
 ├── ENTERPRISE.md
 ├── SECURITY.md
 ├── REFRESH_BUILD.md

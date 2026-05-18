@@ -10,13 +10,61 @@ Release evidence:
 - Release archives: [`../releases/downloads/`](../releases/downloads/)
 - Checksums: [`../releases/downloads/checksums.txt`](../releases/downloads/checksums.txt)
 
+## v0.1.6
+
+### Public Summary
+
+`v0.1.6` adds version reporting and a first-class update command.
+
+### What Changed
+
+- Added `easymcp --version`.
+- Added `easymcp version` with human and JSON output.
+- Added `easymcp update`.
+- Added `easymcp update --dry-run`.
+- Added `easymcp update --yes`.
+- Added `easymcp update --version vX.Y.Z` for pinned updates.
+
+### User Value
+
+- Support can ask for `easymcp --version` and get useful build details.
+- Users can discover update behavior from the CLI itself.
+- The update command shows a plan by default instead of mutating the system immediately.
+- Actual updates still use the safe public installer path and preserve `~/.easymcp` state.
+
+### Update
+
+Preview the update:
+
+```bash
+easymcp update
+```
+
+Run installer dry-run:
+
+```bash
+easymcp update --dry-run
+```
+
+Install latest:
+
+```bash
+easymcp update --yes
+```
+
+Install a pinned version:
+
+```bash
+easymcp update --version v0.1.6 --yes
+```
+
 ## v0.1.5
 
 ### Public Summary
 
-`v0.1.5` is the current public CLI artifact release.
+`v0.1.5` is the first broad public CLI artifact release.
 
-It provides the public installer path, multi-platform archives, and the current EasyMCP management surface for Docker-backed MCP instances.
+It provides the public installer path, multi-platform archives, and the EasyMCP management surface for Docker-backed MCP instances.
 
 ### What Changed
 
@@ -51,7 +99,7 @@ curl -fsSL https://raw.githubusercontent.com/ab0t-com/easymcp/main/install.sh | 
 ### Pinned Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ab0t-com/easymcp/main/install.sh | EASYMCP_VERSION=v0.1.5 bash
+curl -fsSL https://raw.githubusercontent.com/ab0t-com/easymcp/main/install.sh | EASYMCP_VERSION=v0.1.6 bash
 ```
 
 ### Support Notes
@@ -65,8 +113,8 @@ curl -fsSL https://raw.githubusercontent.com/ab0t-com/easymcp/main/install.sh | 
 
 ### v0.1.4
 
-Preview CLI artifact. Prefer `v0.1.5` for current users.
+Preview CLI artifact. Prefer `v0.1.6` for current users.
 
 ### v0.1.3
 
-Preview CLI artifact. Prefer `v0.1.5` for current users.
+Preview CLI artifact. Prefer `v0.1.6` for current users.

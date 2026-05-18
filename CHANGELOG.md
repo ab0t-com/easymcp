@@ -21,11 +21,26 @@ Release evidence:
 
 - Docker runtime published tags: `v0.1.1`, `v0.1.0`.
 - Docker `latest` tag: not currently published.
-- CLI latest mirrored release: `v0.1.5`.
+- CLI latest mirrored release: `v0.1.6`.
 - CLI default runtime image: `ab0tcom/easymcp:v0.1.0`.
 - CLI default EasyMCP port: `8000`.
 
 ## EasyMCP CLI
+
+### v0.1.6
+
+Public message:
+
+- Added `easymcp --version` and `easymcp version`.
+- Added `easymcp update` as a safer first-class update UX around the public installer.
+- `easymcp update` shows an update plan by default, supports `--dry-run`, and only installs with `--yes`.
+- Update flow keeps using the idempotent installer, so it updates the binary without deleting existing `~/.easymcp` state.
+
+Customer benefit:
+
+- Users can quickly report the installed CLI version during support.
+- Updates are discoverable from the CLI instead of requiring users to remember the install command.
+- The default update path remains safe and explicit.
 
 ### v0.1.5
 
@@ -51,7 +66,7 @@ curl -fsSL https://raw.githubusercontent.com/ab0t-com/easymcp/main/install.sh | 
 ### Earlier CLI preview artifacts
 
 - `v0.1.4` and `v0.1.3` preview artifacts may remain mirrored for compatibility.
-- Prefer `v0.1.5` for current installs and support.
+- Prefer `v0.1.6` for current installs and support.
 
 ## EasyMCP Docker Runtime
 

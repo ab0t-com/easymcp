@@ -7,6 +7,7 @@ from pathlib import Path
 
 REQUIRED = [
     "README.md",
+    "CHANGELOG.md",
     "ENTERPRISE.md",
     "SECURITY.md",
     "install.sh",
@@ -18,6 +19,8 @@ REQUIRED = [
     "DOCKER_TAGS.md",
     "docker-tags.json",
     "DOCKERHUB_README.md",
+    "docs/CHANGELOG_CLI.md",
+    "docs/CHANGELOG_DOCKER_RUNTIME.md",
     "docs/cli.md",
     "docs/docker-runtime.md",
     "examples/README.md",

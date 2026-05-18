@@ -58,12 +58,28 @@ Dry-run example:
 curl -fsSL https://raw.githubusercontent.com/ab0t-com/easymcp/main/cli/install.sh | EASYMCP_DRY_RUN=1 bash
 ```
 
+Check the installed CLI:
+
+```bash
+easymcp --version
+easymcp version
+```
+
+Update the CLI:
+
+```bash
+easymcp update
+easymcp update --dry-run
+easymcp update --yes
+```
+
 Installer behavior:
 - installs only `easymcp`
-- resolves the latest GitHub release unless `VERSION` is set
+- resolves the latest GitHub release unless `EASYMCP_VERSION` is set
 - verifies `checksums.txt` by default when available
 - installs to `~/.local/bin` by default
 - does not auto-escalate with `sudo`
+- can be rerun safely as an updater without deleting `~/.easymcp`
 - uses namespaced installer env vars:
   - `EASYMCP_REPO`
   - `EASYMCP_BINARY`
@@ -71,6 +87,13 @@ Installer behavior:
   - `EASYMCP_VERSION`
   - `EASYMCP_CHECKSUMS`
   - `EASYMCP_DRY_RUN`
+
+Update command behavior:
+- `easymcp update` shows a plan and does not mutate the system
+- `easymcp update --dry-run` runs the installer dry-run path
+- `easymcp update --yes` executes the public installer
+- `easymcp update --version vX.Y.Z --yes` installs a pinned CLI release
+- the update command only updates the CLI binary and compatibility symlink; it does not delete instance/profile/cache/audit state under `~/.easymcp`
 
 ## Concepts
 

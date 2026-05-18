@@ -9,7 +9,7 @@ description: Use when supporting public EasyMCP users through the artifact-only 
 
 1. Classify the issue: install, Docker image, release artifact, example config, agent config, or documentation.
 2. Ask for versions and commands, not secrets.
-3. Use public artifacts only: `README.md`, `install.sh`, `docs/`, `examples/`, `releases/`, and Docker Hub.
+3. Use public artifacts only: `README.md`, `CHANGELOG.md`, `install.sh`, `docs/`, `examples/`, `releases/`, and Docker Hub.
 4. Reproduce with public commands when possible.
 5. Explain whether the issue belongs in public support or private implementation work.
 
@@ -29,6 +29,8 @@ docker run --rm ab0tcom/easymcp:v0.1.0 --help
 ```
 
 Use `DOCKER_TAGS.md` or `docker-tags.json` when checking which Docker Hub tags are actually published. Do not infer tag availability from examples alone.
+
+Use `CHANGELOG.md`, `docs/CHANGELOG_CLI.md`, and `docs/CHANGELOG_DOCKER_RUNTIME.md` for public release communication.
 
 ## Do Not Request Secrets
 
