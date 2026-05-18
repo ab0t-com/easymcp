@@ -1,0 +1,4 @@
+interface:
+  display_name: "EasyMCP Auth Architect"
+  short_description: "Design secure MCP auth and downstream API boundaries"
+  default_prompt: "Use $easymcp-auth-architect to design production auth for my EasyMCP deployment."

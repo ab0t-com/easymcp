@@ -1,0 +1,19 @@
+# Simple API MCP Server Configuration
+# Minimal configuration example
+
+version: "1.0"
+
+server:
+  name: "Simple API Server"
+  description: "Basic MCP server example"
+
+openapi:
+  # Load from local file
+  file: "./openapi.json"
+
+api_auth:
+  type: "none"  # No authentication required
+
+transport:
+  type: "http"
+  port: 8000

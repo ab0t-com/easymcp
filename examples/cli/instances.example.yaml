@@ -1,0 +1,72 @@
+schema_version: v1alpha1
+instances:
+  petstore:
+    name: petstore
+    description: Local unauthenticated MCP demo
+    enabled: true
+    group: demos
+    kind: remote_http
+    transport: http
+    url: http://localhost:8000/mcp
+    auth:
+      mode: none
+    health:
+      enabled: true
+
+  auth-demo:
+    name: auth-demo
+    description: Secure remote MCP endpoint
+    enabled: true
+    group: secure
+    kind: remote_http
+    transport: http
+    url: https://mcp.example.com/mcp
+    auth:
+      mode: bearer_env
+      token_env_var: MCP_BEARER_TOKEN
+      header_name: Authorization
+      header_prefix: "Bearer "
+    health:
+      enabled: true
+
+  filesystem:
+    name: filesystem
+    description: Local stdio MCP server
+    enabled: true
+    group: local
+    kind: local_process
+    transport: stdio
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-filesystem"
+      - /tmp
+    auth:
+      mode: none
+
+  easymcp-local:
+    name: easymcp-local
+    description: Managed Docker-backed EasyMCP runtime
+    enabled: true
+    group: demos
+    kind: local_process
+    transport: http
+    command: docker
+    args:
+      - run
+      - --rm
+      - --name
+      - easymcp-easymcp-local
+      - -p
+      - 8000:8000
+      - -v
+      - /path/to/.easymcp/configs/easymcp-local.yaml:/app/config.yaml:ro
+      - ab0tcom/easymcp:v0.1.0
+      - /app/config.yaml
+    url: http://localhost:8000/mcp
+    auth:
+      mode: none
+    managed:
+      auto_restart: false
+    health:
+      enabled: true

@@ -1,0 +1,4 @@
+interface:
+  display_name: "EasyMCP Docker Consumer"
+  short_description: "Run EasyMCP Docker images from public configs safely"
+  default_prompt: "Use $easymcp-docker-consumer to run an OpenAPI service as an EasyMCP Docker container."

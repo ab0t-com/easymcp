@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "server": {
+    "name": "Stripe API MCP Server",
+    "description": "MCP server for Stripe payments API",
+    "version": "1.0.0"
+  },
+  "openapi": {
+    "url": "https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json",
+    "base_url": "https://api.stripe.com"
+  },
+  "api_auth": {
+    "type": "bearer",
+    "token_env": "STRIPE_SECRET_KEY"
+  },
+  "mcp_auth": {
+    "enabled": false
+  },
+  "routing": {
+    "strategy": "semantic"
+  },
+  "discoverability": {
+    "enabled": true,
+    "enhance_descriptions": true,
+    "include_examples": true
+  },
+  "transport": {
+    "type": "http",
+    "port": 8000
+  },
+  "logging": {
+    "level": "INFO",
+    "format": "json"
+  },
+  "tags": ["stripe", "payments", "api"]
+}

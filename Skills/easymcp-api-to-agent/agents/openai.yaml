@@ -1,0 +1,4 @@
+interface:
+  display_name: "EasyMCP API to Agent"
+  short_description: "Turn OpenAPI services into agent-ready MCP tools"
+  default_prompt: "Use $easymcp-api-to-agent to connect my OpenAPI service to Codex or Claude through EasyMCP."

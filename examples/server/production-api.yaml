@@ -1,0 +1,115 @@
+# Production API MCP Server Configuration
+# Full-featured configuration with all security and monitoring enabled
+
+version: "1.0"
+
+server:
+  name: "Production API Server"
+  description: "Production-grade MCP server with full security"
+  version: "2.0.0"
+
+openapi:
+  url: "https://api.example.com/openapi.json"
+  base_url: "https://api.example.com"
+
+api_auth:
+  type: "bearer"
+  token_env: "API_TOKEN"
+  header_name: "Authorization"
+
+mcp_auth:
+  enabled: true
+  type: "jwt"
+  jwks_uri: "https://auth.example.com/.well-known/jwks.json"
+  issuer: "https://auth.example.com"
+  audience: "production-mcp-server"
+
+routing:
+  strategy: "custom"
+  custom_maps:
+    # Exclude health/internal endpoints
+    - methods: "*"
+      pattern: "^/(health|ping|internal)/.*"
+      type: "exclude"
+
+    # GET with parameters → Resource Templates
+    - methods: ["GET"]
+      pattern: ".*\\{.*\\}.*"
+      type: "resource_template"
+      mcp_tags: ["read", "dynamic"]
+
+    # GET without parameters → Resources
+    - methods: ["GET"]
+      type: "resource"
+      mcp_tags: ["read", "static"]
+
+    # Write operations → Tools
+    - methods: ["POST", "PUT", "PATCH", "DELETE"]
+      type: "tool"
+      mcp_tags: ["write"]
+
+discoverability:
+  enabled: true
+  enhance_descriptions: true
+  include_examples: true
+  include_constraints: true
+
+transport:
+  type: "http"
+  host: "0.0.0.0"
+  port: 8000
+
+http_client:
+  timeout:
+    connect: 5.0
+    read: 30.0
+    write: 10.0
+    pool: 5.0
+  retry:
+    enabled: true
+    max_attempts: 3
+    backoff_factor: 2.0
+  limits:
+    max_connections: 100
+    max_keepalive_connections: 20
+
+health:
+  enabled: true
+  endpoint: "/health"
+  check_api: true
+
+logging:
+  level: "INFO"
+  format: "json"
+  include_request_id: true
+  extra_fields:
+    environment: "production"
+    service: "mcp-server"
+
+limits:
+  max_request_size: "10MB"
+  rate_limit:
+    enabled: true
+    requests_per_minute: 100
+    burst: 20
+
+features:
+  caching:
+    enabled: true
+    ttl: 300
+    max_size: 1000
+  cors:
+    enabled: true
+    allow_origins:
+      - "https://claude.ai"
+      - "https://your-frontend.com"
+    allow_credentials: true
+
+tags:
+  - "production"
+  - "api"
+
+metadata:
+  owner: "team@example.com"
+  documentation: "https://docs.example.com/mcp-server"
+  repository: "https://github.com/org/mcp-server"

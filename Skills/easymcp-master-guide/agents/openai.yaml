@@ -1,0 +1,4 @@
+interface:
+  display_name: "EasyMCP Master Guide"
+  short_description: "Route EasyMCP questions across Docker, CLI, profiles, and auth"
+  default_prompt: "Use $easymcp-master-guide to understand which EasyMCP workflow or skill applies to my task."

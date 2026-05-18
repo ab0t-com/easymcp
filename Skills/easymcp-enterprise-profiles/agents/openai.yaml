@@ -1,0 +1,4 @@
+interface:
+  display_name: "EasyMCP Enterprise Profiles"
+  short_description: "Design safe tenant and profile workflows for EasyMCP"
+  default_prompt: "Use $easymcp-enterprise-profiles to design a multi-tenant EasyMCP profile setup."

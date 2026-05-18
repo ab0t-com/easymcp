@@ -1,0 +1,32 @@
+services:
+  easymcp:
+    image: ab0tcom/easymcp:v0.1.0
+    container_name: easymcp-server
+    ports:
+      - "8000:8000"
+    environment:
+      # API authentication (example for GitHub)
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      # MCP authentication (if enabled)
+      - MCP_AUTH_ENABLED=${MCP_AUTH_ENABLED:-false}
+      # Add other environment variables as needed
+      - EASYMCP_HEALTH_PORT=8000
+    volumes:
+      # Mount example config (change to your config path)
+      - ./simple-api.yaml:/app/config.yaml:ro
+      # Or mount a directory with multiple configs
+      # - ./:/app/configs:ro
+    restart: unless-stopped
+    command: /app/config.yaml
+    networks:
+      - mcp-network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2).read()\""]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+networks:
+  mcp-network:
+    driver: bridge

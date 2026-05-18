@@ -1,0 +1,86 @@
+# Auth Service MCP Server Configuration
+# OpenAPI spec downloaded from URL on startup
+
+version: "1.0"
+
+server:
+  name: "Ab0t Auth Service"
+  description: "MCP server for Ab0t authentication service"
+  version: "1.0.0"
+
+openapi:
+  # OpenAPI spec is downloaded on startup from this URL
+  url: "https://auth.service.ab0t.com/openapi.json"
+  # Base URL for API calls (required if spec doesn't include servers)
+  base_url: "https://auth.service.ab0t.com"
+
+api_auth:
+  # No MCP-level auth - auth service handles its own mixed public/private endpoints
+  type: "none"
+
+  # If your auth service requires server-to-server credentials:
+  # type: "bearer"
+  # token_env: "AUTH_SERVICE_TOKEN"
+
+  # Or if using API key:
+  # type: "api_key"
+  # header_name: "X-API-Key"
+  # token_env: "AUTH_SERVICE_KEY"
+
+mcp_auth:
+  # Disable for internal use, enable for production
+  enabled: false
+
+  # For production, secure the MCP server:
+  # enabled: true
+  # type: "jwt"
+  # jwks_uri: "https://auth.service.ab0t.com/.well-known/jwks.json"
+  # issuer: "https://auth.service.ab0t.com"
+  # audience: "auth-mcp-server"
+
+routing:
+  # Semantic routing: GET → Resources, POST/PUT/DELETE → Tools
+  strategy: "semantic"
+
+  # Exclude internal/health endpoints if needed
+  # exclude_patterns:
+  #   - "^/health$"
+  #   - "^/internal/.*"
+
+discoverability:
+  enabled: true
+  enhance_descriptions: true
+  include_examples: true
+  include_constraints: true
+
+transport:
+  type: "http"
+  host: "0.0.0.0"
+  port: 8000
+
+http_client:
+  timeout:
+    connect: 5.0
+    read: 30.0
+    write: 10.0
+  retry:
+    enabled: true
+    max_attempts: 3
+
+health:
+  enabled: true
+  endpoint: "/health"
+  check_api: true  # Verify auth service is reachable on startup
+
+logging:
+  level: "INFO"
+  format: "json"
+
+tags:
+  - "auth"
+  - "ab0t"
+  - "identity"
+
+metadata:
+  owner: "ab0t"
+  service_url: "https://auth.service.ab0t.com"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "EasyMCP Public Release Support"
+  short_description: "Support CLI installs, Docker pulls, and public artifacts"
+  default_prompt: "Use $easymcp-public-release-support to troubleshoot my EasyMCP install or Docker image."

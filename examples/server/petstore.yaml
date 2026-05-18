@@ -1,0 +1,28 @@
+# Petstore API - Standard OpenAPI test server
+version: "1.0"
+
+server:
+  name: "Petstore API"
+  description: "Swagger Petstore MCP server for testing"
+
+openapi:
+  # Swagger Petstore - official OpenAPI example
+  url: "https://petstore3.swagger.io/api/v3/openapi.json"
+
+api_auth:
+  type: "none"
+
+routing:
+  strategy: "semantic"
+
+transport:
+  type: "http"
+  port: 8000
+
+health:
+  enabled: true
+  check_api: false
+
+logging:
+  level: "INFO"
+  format: "text"

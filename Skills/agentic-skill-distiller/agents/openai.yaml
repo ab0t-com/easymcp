@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agentic Skill Distiller"
+  short_description: "Design compressed, discoverable, high-quality AI agent skills"
+  default_prompt: "Use $agentic-skill-distiller to turn this domain knowledge or workflow into a concise, testable agent skill."

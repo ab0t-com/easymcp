@@ -1,0 +1,2 @@
+a60c131d5ed5a8f5b5c78876ccfb65a5eaf8995163579fb5e102cc4a692d20c6  easymcp_0.1.3_linux_amd64.tar.gz
+cb04fb8c42f540614230dbae47cca41617758b1b3df7d4a4b5f51b7d9342787a  easymcp_0.1.4_linux_amd64.tar.gz

@@ -1,0 +1,22 @@
+name: Bug report
+description: Report a problem with EasyMCP public artifacts, Docker image, CLI install, or docs
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or tag
+      placeholder: v0.1.0
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Include CLI commands, Docker image tag, and relevant config snippets without secrets.
