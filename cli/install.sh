@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Safe installer for easymcp from GitHub Releases.
+# Safe installer for easymcp from public release artifacts.
 # Intended usage:
 #   curl -fsSL https://raw.githubusercontent.com/ab0t-com/easymcp/main/cli/install.sh | bash
 #
@@ -13,9 +13,13 @@ set -euo pipefail
 #   EASYMCP_CHECKSUMS=1
 #   EASYMCP_DRY_RUN=0|1
 #   EASYMCP_RELEASE_BASE_URL=https://github.com/<repo>/releases/download
+#   EASYMCP_RELEASE_MIRROR_BASE_URL=https://raw.githubusercontent.com/<repo>/main/releases/downloads
+#   EASYMCP_LATEST_URL=https://raw.githubusercontent.com/<repo>/main/releases/latest.txt
+#   EASYMCP_GITHUB_API=https://api.github.com
 #
 # Notes:
 # - This script downloads exactly one release artifact and installs one binary.
+# - It prefers GitHub Releases, then falls back to repo-mirrored release files.
 # - It verifies checksums when a matching checksums file is available.
 # - It does not run sudo automatically. If INSTALL_DIR is not writable, it exits.
 
@@ -25,8 +29,10 @@ INSTALL_DIR="${EASYMCP_INSTALL_DIR:-$HOME/.local/bin}"
 VERSION="${EASYMCP_VERSION:-latest}"
 CHECKSUMS="${EASYMCP_CHECKSUMS:-1}"
 DRY_RUN="${EASYMCP_DRY_RUN:-0}"
-GITHUB_API="${GITHUB_API:-https://api.github.com}"
-RAW_BASE="${EASYMCP_RELEASE_BASE_URL:-https://github.com/${REPO}/releases/download}"
+GITHUB_API="${EASYMCP_GITHUB_API:-${GITHUB_API:-https://api.github.com}}"
+RELEASE_BASE="${EASYMCP_RELEASE_BASE_URL:-https://github.com/${REPO}/releases/download}"
+MIRROR_BASE="${EASYMCP_RELEASE_MIRROR_BASE_URL:-https://raw.githubusercontent.com/${REPO}/main/releases/downloads}"
+LATEST_URL="${EASYMCP_LATEST_URL:-https://raw.githubusercontent.com/${REPO}/main/releases/latest.txt}"
 
 fail() {
   echo "install.sh: $*" >&2
@@ -37,16 +43,35 @@ need_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "required command not found: $1"
 }
 
-fetch() {
+try_fetch() {
   local url="$1"
   local out="$2"
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$url" -o "$out"
+    curl -fsSL "$url" -o "$out" 2>/dev/null
   elif command -v wget >/dev/null 2>&1; then
-    wget -qO "$out" "$url"
+    wget -qO "$out" "$url" 2>/dev/null
   else
     fail "curl or wget is required"
   fi
+}
+
+fetch() {
+  local url="$1"
+  local out="$2"
+  try_fetch "$url" "$out" || fail "failed to fetch: $url"
+}
+
+fetch_first() {
+  local out="$1"
+  shift
+  local url
+  for url in "$@"; do
+    if try_fetch "$url" "$out"; then
+      echo "$url"
+      return 0
+    fi
+  done
+  fail "failed to fetch any candidate URL"
 }
 
 detect_os() {
@@ -76,11 +101,15 @@ resolve_version() {
   fi
 
   need_cmd sed
-  local tmp
+  local tmp tag
   tmp="$(mktemp)"
-  fetch "${GITHUB_API}/repos/${REPO}/releases/latest" "$tmp"
-  local tag
-  tag="$(sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' "$tmp" | head -n1)"
+  tag=""
+  if try_fetch "${GITHUB_API}/repos/${REPO}/releases/latest" "$tmp"; then
+    tag="$(sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' "$tmp" | head -n1)"
+  fi
+  if [ -z "$tag" ] && try_fetch "$LATEST_URL" "$tmp"; then
+    tag="$(sed -n 's/^[[:space:]]*\(v[0-9][^[:space:]]*\)[[:space:]]*$/\1/p' "$tmp" | head -n1)"
+  fi
   rm -f "$tmp"
   [ -n "$tag" ] || fail "could not resolve latest release for ${REPO}"
   echo "$tag"
@@ -106,14 +135,18 @@ main() {
   need_cmd mktemp
   need_cmd tar
 
-  local os arch version asset_name asset_url checksums_url tmpdir archive checksums binary_path
+  local os arch version asset_name asset_url asset_mirror_url asset_root_mirror_url checksums_url checksums_mirror_url checksums_root_mirror_url tmpdir archive checksums binary_path fetched_asset_url fetched_checksums_url
   os="$(detect_os)"
   arch="$(detect_arch)"
   version="$(resolve_version)"
 
   asset_name="${BINARY}_${version#v}_${os}_${arch}.tar.gz"
-  asset_url="${RAW_BASE}/${version}/${asset_name}"
-  checksums_url="${RAW_BASE}/${version}/checksums.txt"
+  asset_url="${RELEASE_BASE}/${version}/${asset_name}"
+  asset_mirror_url="${MIRROR_BASE}/${version}/${asset_name}"
+  asset_root_mirror_url="${MIRROR_BASE}/${asset_name}"
+  checksums_url="${RELEASE_BASE}/${version}/checksums.txt"
+  checksums_mirror_url="${MIRROR_BASE}/${version}/checksums.txt"
+  checksums_root_mirror_url="${MIRROR_BASE}/checksums.txt"
 
   if [ "$DRY_RUN" = "1" ]; then
     echo "Dry run OK" >&2
@@ -121,8 +154,12 @@ main() {
     echo "  version:      ${version}" >&2
     echo "  asset:        ${asset_name}" >&2
     echo "  asset_url:    ${asset_url}" >&2
+    echo "  fallback_url: ${asset_mirror_url}" >&2
+    echo "  fallback_root:${asset_root_mirror_url}" >&2
     echo "  checksums:    ${CHECKSUMS}" >&2
     echo "  checksums_url:${checksums_url}" >&2
+    echo "  fallback_sum: ${checksums_mirror_url}" >&2
+    echo "  fallback_root:${checksums_root_mirror_url}" >&2
     echo "  install_dir:  ${INSTALL_DIR}" >&2
     exit 0
   fi
@@ -133,10 +170,12 @@ main() {
   checksums="${tmpdir}/checksums.txt"
 
   echo "Installing ${BINARY} ${version} from ${REPO}" >&2
-  fetch "$asset_url" "$archive"
+  fetched_asset_url="$(fetch_first "$archive" "$asset_url" "$asset_mirror_url" "$asset_root_mirror_url")"
+  echo "Downloaded ${asset_name} from ${fetched_asset_url}" >&2
 
   if [ "$CHECKSUMS" = "1" ]; then
-    fetch "$checksums_url" "$checksums"
+    fetched_checksums_url="$(fetch_first "$checksums" "$checksums_url" "$checksums_mirror_url" "$checksums_root_mirror_url")"
+    echo "Downloaded checksums from ${fetched_checksums_url}" >&2
     verify_checksum "$archive" "$checksums"
   fi
 

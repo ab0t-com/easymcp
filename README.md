@@ -11,6 +11,7 @@ This is the public artifact and support repository. It is intentionally not the 
 - AI agent skills
 - support and issue templates
 - Docker Hub and CLI references
+- Docker Hub tag inventory generated from Docker Hub
 - security workflow and optional local git hooks
 
 For the product/marketing overview, read [`README-PMM.md`](README-PMM.md).
@@ -66,6 +67,8 @@ Docker Hub:
 https://hub.docker.com/r/ab0tcom/easymcp
 ```
 
+Published image tags are queried from Docker Hub into [`DOCKER_TAGS.md`](DOCKER_TAGS.md) and [`docker-tags.json`](docker-tags.json) during public repo refresh.
+
 ## Fastest Path
 
 ```bash
@@ -88,6 +91,8 @@ easymcp agent install codex auth-service
 ├── ENTERPRISE.md
 ├── SECURITY.md
 ├── REFRESH_BUILD.md
+├── DOCKER_TAGS.md
+├── docker-tags.json
 ├── install.sh
 ├── cli/install.sh
 ├── scripts/install-git-hooks.sh

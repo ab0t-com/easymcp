@@ -78,7 +78,7 @@ The Docker runtime is the portable OpenAPI-to-MCP server. It is config-driven an
 ab0tcom/easymcp:v0.1.0
 ```
 
-Users do not need private source code to run it.
+Users do not need private source code to run it. Published tags are queried from Docker Hub into `DOCKER_TAGS.md` and `docker-tags.json` during public repo refresh, so release docs do not guess which tags exist.
 
 ### EasyMCP CLI
 

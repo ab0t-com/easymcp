@@ -39,10 +39,13 @@ EASYMCP_PUBLIC_REPO_DIR=PUBLIC_REPO ./scripts/sync-public-repo.sh
 - `install.sh`
 - `cli/install.sh`
 - `scripts/install-git-hooks.sh`
+- `DOCKER_TAGS.md`
+- `docker-tags.json`
 - `DOCKERHUB_README.md`
 - `docs/`
 - `examples/`
 - `releases/`
+- `releases/latest.txt`
 - `.github/ISSUE_TEMPLATE/`
 - `.github/workflows/security.yml`
 - `.githooks/pre-commit`
@@ -51,7 +54,7 @@ EASYMCP_PUBLIC_REPO_DIR=PUBLIC_REPO ./scripts/sync-public-repo.sh
 
 ## Generated From
 
-Generated at: `2026-05-18T06:37:37Z`
+Generated at: `2026-05-18T07:05:13Z`
 
 Private source branch: `feature/auth-work`
 

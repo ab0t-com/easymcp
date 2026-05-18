@@ -28,6 +28,8 @@ docker pull ab0tcom/easymcp:v0.1.0
 docker run --rm ab0tcom/easymcp:v0.1.0 --help
 ```
 
+Use `DOCKER_TAGS.md` or `docker-tags.json` when checking which Docker Hub tags are actually published. Do not infer tag availability from examples alone.
+
 ## Do Not Request Secrets
 
 Ask users to redact:
@@ -51,4 +53,3 @@ Load only what is needed:
 ## Helper Script
 
 Use `scripts/audit-public-repo.py` to check a public repo tree for required public artifacts and accidental implementation-source leakage.
-

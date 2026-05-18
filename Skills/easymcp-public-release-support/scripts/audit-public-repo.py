@@ -15,6 +15,8 @@ REQUIRED = [
     ".github/workflows/security.yml",
     ".githooks/pre-commit",
     ".githooks/pre-push",
+    "DOCKER_TAGS.md",
+    "docker-tags.json",
     "DOCKERHUB_README.md",
     "docs/cli.md",
     "docs/docker-runtime.md",
