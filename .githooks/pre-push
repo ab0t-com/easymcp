@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${SKIP_GITLEAKS:-0}" = "1" ]; then
+  echo "pre-push: skipping Gitleaks because SKIP_GITLEAKS=1" >&2
+  exit 0
+fi
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-push: gitleaks is required. Install it or run with SKIP_GITLEAKS=1 only for an intentional emergency bypass." >&2
+  echo "pre-push: https://github.com/gitleaks/gitleaks" >&2
+  exit 1
+fi
+
+echo "pre-push: scanning repository history with Gitleaks" >&2
+gitleaks git --redact --no-banner --verbose

@@ -38,16 +38,20 @@ EASYMCP_PUBLIC_REPO_DIR=PUBLIC_REPO ./scripts/sync-public-repo.sh
 - `ARTIFACT_MANIFEST.md`
 - `install.sh`
 - `cli/install.sh`
+- `scripts/install-git-hooks.sh`
 - `DOCKERHUB_README.md`
 - `docs/`
 - `examples/`
 - `releases/`
 - `.github/ISSUE_TEMPLATE/`
+- `.github/workflows/security.yml`
+- `.githooks/pre-commit`
+- `.githooks/pre-push`
 - `Skills/dist/*.skill` packages when `Skills/` exists
 
 ## Generated From
 
-Generated at: `2026-05-18T06:29:48Z`
+Generated at: `2026-05-18T06:37:37Z`
 
 Private source branch: `feature/auth-work`
 

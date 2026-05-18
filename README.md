@@ -11,6 +11,7 @@ This is the public artifact and support repository. It is intentionally not the 
 - AI agent skills
 - support and issue templates
 - Docker Hub and CLI references
+- security workflow and optional local git hooks
 
 For the product/marketing overview, read [`README-PMM.md`](README-PMM.md).
 
@@ -21,6 +22,19 @@ For enterprise support, managed deployments, commercial terms, and agent infrast
 The public artifacts in this repository are distributed under the MIT License unless a file says otherwise. This includes CLI release archives, Docker/Compose examples, documentation, and packaged agent skills.
 
 The private EasyMCP implementation source code is not published in this repository and is not granted by this public artifact repo.
+
+## Security Checks
+
+The public repo includes:
+
+- GitHub Actions secret scanning with Gitleaks.
+- Optional local `pre-commit` and `pre-push` hooks under `.githooks/`.
+
+Install local hooks after cloning:
+
+```bash
+./scripts/install-git-hooks.sh
+```
 
 ## Install the CLI
 
@@ -76,10 +90,12 @@ easymcp agent install codex auth-service
 ├── REFRESH_BUILD.md
 ├── install.sh
 ├── cli/install.sh
+├── scripts/install-git-hooks.sh
 ├── docs/
 ├── examples/
 ├── releases/
 ├── Skills/
+├── .githooks/
 └── .github/ISSUE_TEMPLATE/
 ```
 

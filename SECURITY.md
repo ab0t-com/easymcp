@@ -36,3 +36,13 @@ Include only non-sensitive details:
 ## Secret Handling
 
 EasyMCP examples and docs use environment variable names for credentials. Do not paste raw token values into public issues, examples, logs, screenshots, or pull requests.
+
+## Local Hooks
+
+Install optional local Gitleaks hooks:
+
+```bash
+./scripts/install-git-hooks.sh
+```
+
+The hooks scan staged changes before commit and repository history before push. Set `SKIP_GITLEAKS=1` only for an intentional emergency bypass.

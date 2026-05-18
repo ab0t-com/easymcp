@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${SKIP_GITLEAKS:-0}" = "1" ]; then
+  echo "pre-commit: skipping Gitleaks because SKIP_GITLEAKS=1" >&2
+  exit 0
+fi
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks is required. Install it or run with SKIP_GITLEAKS=1 only for an intentional emergency bypass." >&2
+  echo "pre-commit: https://github.com/gitleaks/gitleaks" >&2
+  exit 1
+fi
+
+echo "pre-commit: scanning staged changes with Gitleaks" >&2
+gitleaks git --staged --redact --no-banner --verbose

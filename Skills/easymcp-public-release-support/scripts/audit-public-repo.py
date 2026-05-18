@@ -7,8 +7,14 @@ from pathlib import Path
 
 REQUIRED = [
     "README.md",
+    "ENTERPRISE.md",
+    "SECURITY.md",
     "install.sh",
     "cli/install.sh",
+    "scripts/install-git-hooks.sh",
+    ".github/workflows/security.yml",
+    ".githooks/pre-commit",
+    ".githooks/pre-push",
     "DOCKERHUB_README.md",
     "docs/cli.md",
     "docs/docker-runtime.md",
