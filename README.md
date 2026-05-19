@@ -1,5 +1,9 @@
 # EasyMCP
 
+<p align="center">
+  <img src="assets/easymcp-banner.png" alt="EasyMCP banner" width="1023" height="672" style="max-width: 100%; border-radius: 16px;" />
+</p>
+
 EasyMCP turns OpenAPI services into MCP tools for AI agents.
 
 This is the public artifact and support repository. It is intentionally not the private source-code repository. It contains:

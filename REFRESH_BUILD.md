@@ -55,7 +55,7 @@ EASYMCP_PUBLIC_REPO_DIR=PUBLIC_REPO ./scripts/sync-public-repo.sh
 
 ## Generated From
 
-Generated at: `2026-05-19T12:36:32Z`
+Generated at: `2026-05-19T12:40:53Z`
 
 Private source branch: `feature/auth-work`
 
