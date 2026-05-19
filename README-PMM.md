@@ -1,88 +1,106 @@
-# EASYMCP — TURN APIS INTO AGENT TOOLS IN MINUTES
+# EASYMCP — TURN EXISTING APIS INTO AGENT TOOLS
 
-EasyMCP helps teams turn real APIs into usable MCP tools for AI agents without writing a custom MCP server for every service.
+<p align="center">
+  <img src="assets/easymcp-banner.png" alt="EasyMCP banner" width="1023" height="672" style="max-width: 100%; border-radius: 16px;" />
+</p>
 
-If your company already has OpenAPI specs, EasyMCP gives you a practical path from “we have APIs” to “Codex, Claude, and other agents can safely use these tools” with Docker, a CLI, discovery, profiles, and enterprise auth patterns.
+EasyMCP helps teams convert existing OpenAPI services into MCP tools that AI agents can discover, inspect, and use.
 
-## Why Teams Use EasyMCP
+The goal is simple: if your company already has API contracts, your agents should be able to use those APIs without every team writing and maintaining a custom MCP server.
 
-AI agents are most valuable when they can act on real systems. The hard part is not only exposing an endpoint. The hard part is making that endpoint discoverable, configurable, authenticated, tenant-aware, and easy for developers to install into the agent tools they already use.
+## Install Fast
 
-EasyMCP focuses on that operator workflow:
+```bash
+curl -fsSL https://raw.githubusercontent.com/ab0t-com/easymcp/main/install.sh | bash
+```
 
-- **Convert OpenAPI to MCP** — use existing API contracts as the source of truth.
-- **Run with Docker** — ship a public image instead of requiring users to clone private server code.
-- **Manage with one CLI** — create, start, stop, inspect, search, and install MCP instances.
-- **Discover tools by intent** — search for “create a payment plan” instead of memorizing generated tool names.
-- **Support real customers** — use profiles, groups, credential references, and tenant metadata for multi-account work.
-- **Fit enterprise auth** — keep token boundaries explicit between agent-to-MCP and MCP-to-downstream API calls.
+Verify:
 
-## Fast Value
+```bash
+easymcp --version
+easymcp --help
+```
 
-Create an MCP server from an OpenAPI spec:
+The installer downloads a signed release archive for your platform, verifies checksums, and installs the `easymcp` CLI without cloning private implementation source.
+
+## See Value in Minutes
+
+Create an MCP instance from an OpenAPI service:
 
 ```bash
 easymcp create auth-service \
   --openapi https://auth.service.ab0t.com/openapi.json \
-  --port 8091
+  --group auth
+```
 
-easymcp start auth-service
+Run it:
+
+```bash
+easymcp start auth-service --wait
 easymcp check auth-service
-easymcp find "create a user token"
 ```
 
-Install it into an agent:
+Ask for what you want in human language:
 
 ```bash
-easymcp agent render codex auth-service
-easymcp agent install codex auth-service
+easymcp discover refresh auth-service
+easymcp find "I need to create an API key" --instance auth-service
 ```
 
-Use the Docker image directly:
+Inspect before acting:
 
 ```bash
-docker pull ab0tcom/easymcp:v0.1.0
+easymcp discover inspect create_api_key_api_keys \
+  --instance auth-service \
+  --payload-template
 ```
 
-## Who It Is For
+Dry-run before executing:
 
-### API Teams
-
-Expose existing services to AI agents without building a bespoke MCP server for every API. Keep the OpenAPI spec as the contract your service team already understands.
-
-### Platform Engineers
-
-Create a repeatable MCP lifecycle: local Docker runtime, generated configs, health checks, discovery cache, agent install, and auditable profile state.
-
-### Consultants and Agencies
-
-Work across multiple customer environments without mixing credentials. Profiles let you model customer, environment, credential refs, tenant metadata, and agent auth bindings explicitly.
-
-### Enterprise Security Reviewers
-
-Review clear boundaries:
-
-- agent client -> MCP server auth
-- MCP server -> downstream API auth
-- tenant routing metadata
-- env-var credential references instead of raw secret storage
-- profile audit logs
-
-## Product Surfaces
-
-### EasyMCP Docker Runtime
-
-The Docker runtime is the portable OpenAPI-to-MCP server. It is config-driven and published as:
-
-```text
-ab0tcom/easymcp:v0.1.0
+```bash
+easymcp call create_api_key_api_keys \
+  --instance auth-service \
+  --data '{"name":"demo-key"}' \
+  --dry-run
 ```
 
-Users do not need private source code to run it. Published tags are queried from Docker Hub into `DOCKER_TAGS.md` and `docker-tags.json` during public repo refresh, so release docs do not guess which tags exist.
+That is the core value loop: create, run, discover, inspect, dry-run, then act intentionally.
 
-### EasyMCP CLI
+## Why Teams Use EasyMCP
 
-The `easymcp` CLI is the control surface:
+AI agents are most useful when they can operate real systems. The hard part is not just exposing an endpoint. The hard part is making tools discoverable, authenticated, tenant-aware, inspectable, and easy to install into the agent clients developers already use.
+
+EasyMCP focuses on that operational layer:
+
+- **OpenAPI to MCP** — turn existing API contracts into agent tools.
+- **Docker runtime** — run a public image without exposing private server source.
+- **CLI control plane** — create, start, stop, inspect, search, call, profile, and install MCPs.
+- **Discovery by intent** — search for “create a payment plan” instead of memorizing tool names.
+- **Profiles and tenants** — keep customer, environment, auth, and agent bindings explicit.
+- **Safe execution** — inspect schemas, generate payload templates, dry-run calls, and require confirmation for mutating actions.
+
+## Docker Runtime
+
+The Docker image is the portable MCP server runtime:
+
+```bash
+docker pull ab0tcom/easymcp:latest
+```
+
+It is config-driven. The CLI generates and manages runtime config, but teams can also run the image directly with their own config files when they need lower-level control.
+
+Use the Docker runtime when you want:
+
+- a repeatable local MCP server for an OpenAPI service
+- a public artifact that does not require private source checkout
+- the same runtime pattern across many services
+- a path toward production MCP gateway deployments
+
+## CLI Control Surface
+
+The CLI is not an optional wrapper. It is the developer and agent operations layer.
+
+Common commands:
 
 ```bash
 easymcp create <name> --openapi <url-or-file>
@@ -90,83 +108,102 @@ easymcp ps
 easymcp check <name>
 easymcp discover refresh <name>
 easymcp find "what I want to do"
+easymcp discover inspect <tool> --payload-template
+easymcp call <tool> --dry-run
 easymcp profile ls
 easymcp agent install codex <name>
+easymcp restart <name>
 ```
 
-The CLI stores local state under `~/.easymcp/` and avoids storing raw credential values.
+The CLI stores local manager state under `~/.easymcp/` and uses credential references instead of storing raw secrets in normal profile config.
 
-### Public Artifact Repo
+## Agent Workflows
+
+EasyMCP is built for humans and agents.
+
+Humans use it to:
+
+- create MCP instances from OpenAPI specs
+- group services by domain
+- switch between customer or environment profiles
+- install MCP configs into local agent clients
+- validate runtime health before handing tools to agents
+
+Agents use it to:
+
+- search tool inventory by intent
+- inspect schemas before calling tools
+- generate payload templates
+- dry-run requests
+- export contract bundles for context
+- explain missing auth, missing runtime, or unsafe calls clearly
+
+For detailed human and agent usage patterns, see [`docs/human-agent-usage-guide.md`](docs/human-agent-usage-guide.md).
+
+## Profiles, Tenants, and Enterprise Use
+
+EasyMCP supports simple local use first, then scales into enterprise workflows.
+
+Profiles let consultants, agencies, platform teams, and enterprise operators separate:
+
+- customer accounts
+- environments such as dev, staging, and production
+- tenant metadata
+- API auth references
+- agent auth bindings
+- service groups
+
+This matters because agent tooling can touch real customer systems. A profile boundary helps reduce accidental cross-customer calls, wrong-environment calls, and credential confusion.
+
+## Who It Is For
+
+### API Teams
+
+Expose existing services to AI agents without building a bespoke MCP server for every API.
+
+### Platform Teams
+
+Create a repeatable MCP lifecycle: public runtime image, generated configs, health checks, discovery cache, profile state, and agent installation.
+
+### Consultants and Agencies
+
+Work across multiple customers while keeping credentials, tenants, and MCP instances separated.
+
+### Security and Enterprise Reviewers
+
+Review clear boundaries between agent-to-MCP auth, MCP-to-API auth, tenant routing, and local credential references.
+
+## Public Artifact Model
 
 This public repository is for adoption and support:
 
 - install scripts
 - release downloads
 - public examples
-- Docker Hub README source
-- docs for CLI, Docker, profiles, and auth
-- AI agent skills for guided usage
-- issue templates
+- Docker Hub references
+- CLI and Docker docs
+- profile and auth guides
+- AI agent skills
+- issues and support workflows
 
-The private implementation source remains private.
-
-## Advanced Use
-
-EasyMCP is designed to start simple and grow into enterprise use:
-
-- **Groups** organize related MCP instances.
-- **Profiles** model customers, tenants, and environments.
-- **Credential refs** point to env vars instead of storing secret values.
-- **Tenant metadata** records how tenant context is passed.
-- **Agent auth profiles** render target-specific config for Codex and Claude.
-- **Discovery search** helps humans and agents find the right tool by intent.
-- **Agent skills** package repeatable workflows for AI assistants.
+The private implementation source is not published in this repository. Users get public binaries, Docker image references, docs, examples, and packaged agent skills.
 
 ## Enterprise Pathway
 
-EasyMCP is free to use as a public artifact, and ab0t sells agent infrastructure for teams that need production help.
+EasyMCP is free to use from public artifacts. ab0t sells agent infrastructure for teams that need production help.
 
-Enterprise customers can work with ab0t on:
+Enterprise work can include:
 
-- managed EasyMCP and MCP gateway deployments
-- private/on-prem deployments
-- SSO, OAuth, tenant isolation, and policy design
-- security review support and procurement documentation
-- SLA-backed support and priority incident response
-- custom agent integrations for Codex, Claude, internal agents, and future MCP clients
-- roadmap prioritization and implementation services
+- managed MCP gateway deployments
+- private or on-prem deployments
+- SSO, OAuth, JWT, tenant isolation, and policy design
+- security review support
+- custom connector and OpenAPI transformation work
+- support for Codex, Claude, internal agents, and future MCP clients
 - commercial terms for private source access, custom builds, warranties, or indemnity when agreed in writing
 
-See [`ENTERPRISE.md`](ENTERPRISE.md). The public MIT license remains available for the artifacts in this repo.
-
-## Recommended Public URL
-
-Use this public GitHub repository name:
-
-```text
-https://github.com/ab0t-com/easymcp
-```
-
-That matches the install links and the product name users should remember.
-
-## License and Source Model
-
-The public artifacts are MIT licensed unless a file says otherwise. Users can use, copy, distribute, and operate the CLI binaries, Docker examples, Compose examples, docs, and packaged agent skills under the MIT no-warranty terms.
-
-The private implementation source is not published in this repository. This public repo licenses the artifacts it contains; it does not publish or grant access to unpublished private source code.
-
-## Install
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ab0t-com/easymcp/main/install.sh | bash
-```
-
-Pinned:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ab0t-com/easymcp/main/install.sh | EASYMCP_VERSION=v0.1.0 bash
-```
+See [`ENTERPRISE.md`](ENTERPRISE.md).
 
 ## Bottom Line
 
-EasyMCP is the practical bridge between existing APIs and useful agent tools. It gives developers a fast local path, platform teams a repeatable operational model, and enterprises a clearer route to secure, tenant-aware MCP adoption.
+EasyMCP is a practical bridge between the APIs companies already run and the agent workflows teams want to build. It gives developers a fast local path, platform teams an operational model, and enterprises a route toward secure, tenant-aware MCP adoption.
