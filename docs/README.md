@@ -2,6 +2,7 @@
 
 - `docker-runtime.md` — Docker image and runtime overview.
 - `cli.md` — CLI lifecycle, agent install, discovery, and profile management.
+- `human-agent-usage-guide.md` — practical guide for humans and LLM agents using EasyMCP.
 - `profiles-and-tenants.md` — practical profile and tenant guide.
 - `profile-onboarding-recipe.md` — repeatable profile setup flow for tenant/customer environments.
 - `profiles-enterprise-storage-map_*.md` — deeper storage and enterprise profile mapping.
