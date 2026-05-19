@@ -21,18 +21,6 @@ easymcp --version
 easymcp --help
 ```
 
-Install a pinned version:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ab0t-com/easymcp/main/install.sh | EASYMCP_VERSION=v0.1.7 bash
-```
-
-Preview install behavior without changing anything:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ab0t-com/easymcp/main/install.sh | EASYMCP_DRY_RUN=1 bash
-```
-
 ## See the Value Quickly
 
 Create an MCP server from an OpenAPI spec:
@@ -55,6 +43,53 @@ Discover what tools it exposes:
 ```bash
 easymcp discover refresh auth-service
 easymcp find "I need to create an API key" --instance auth-service
+```
+
+`find` searches the cached discovery index built from the service OpenAPI document. Refresh reads operation names, endpoints, descriptions, parameters, schemas, auth hints, and other tool metadata, embeds those tool records into a vector index, and stores the vectors plus metadata in the local EasyMCP cache. Search combines vector similarity with keyword signals, so humans and agents can ask by intent instead of memorizing generated tool names.
+
+Example intent search:
+
+```bash
+easymcp find "create me a api key please"
+```
+
+Output:
+
+```text
+╭───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Top Match                                                                                                                 │
+│ Query: create me a api key please                                                                                         │
+│ Tool: create_api_key_api_keys                                                                                             │
+│ Scope: auth-service / -                                                                                                   │
+│ Endpoint: POST /api-keys/                                                                                                 │
+│ Action: mutates                                                                                                           │
+│ Auth: requires BearerJWT                                                                                                  │
+│ Summary: Create API key for service-to-service auth. Input: {name, permissions?, rate_limit?, expires_at?, metadata?} …   │
+│ Commands                                                                                                                  │
+│   Inspect:  easymcp discover inspect create_api_key_api_keys --instance auth-service                                      │
+│   Template: easymcp discover inspect create_api_key_api_keys --instance auth-service --payload-template                   │
+│   Dry Run:  easymcp call create_api_key_api_keys --instance auth-service --yes --data '{"name":"Example Name"}' --dry-run │
+│   Call:     easymcp call create_api_key_api_keys --instance auth-service --yes --data '{"name":"Example Name"}'           │
+│                                                                                                                           │
+│ Auth                                                                                                                      │
+│   Requires BearerJWT; configure credentials on the instance/profile before calling.                                       │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Results for "create me a api key please" • 10 matches
+─────────────────────────────────────────────────────
+RANK  TOOL                                                      SCOPE             ENDPOINT                                ACTION   AUTH                          SUMMARY                                                                   SCORE
+----  --------------------------------------------------------  ----------------  --------------------------------------  -------  ----------------------------  ------------------------------------------------------------------------  -----
+1     create_api_key_api_keys                                   auth-service / -  POST /api-keys/                         mutates  requires BearerJWT            Create API key for service-to-service auth. Input: {name, permissions?,…  0.64
+2     delete_api_key_api_keys                                   auth-service / -  DELETE /api-keys/{key_id}               mutates  requires ApiKeyBearer, Bear…  Permanently revoke an API key. Input: key_id in path Auth: Bearer token…  0.63
+3     update_api_key_api_keys                                   auth-service / -  PUT /api-keys/{key_id}                  mutates  requires ApiKeyBearer, Bear…  Update an API key's name, permissions, or status. Input: {name?, permis…  0.61
+
+Next Steps
+──────────
+Inspect best match: easymcp discover inspect create_api_key_api_keys --instance auth-service
+Generate payload template: easymcp discover inspect create_api_key_api_keys --instance auth-service --payload-template
+Dry-run the call: easymcp call create_api_key_api_keys --instance auth-service --yes --data '{"name":"Example Name"}' --dry-run
+Execute when ready: easymcp call create_api_key_api_keys --instance auth-service --yes --data '{"name":"Example Name"}'
+Auth: Requires BearerJWT; configure credentials on the instance/profile before calling.
 ```
 
 Inspect a tool before using it:

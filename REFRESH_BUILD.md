@@ -46,7 +46,6 @@ EASYMCP_PUBLIC_REPO_DIR=PUBLIC_REPO ./scripts/sync-public-repo.sh
 - `releases/`
 - `releases/latest.txt`
 - `.github/ISSUE_TEMPLATE/`
-- `.github/workflows/security.yml`
 - `.githooks/pre-commit`
 - `.githooks/pre-push`
 - `Skills/dist/*.skill` packages when `Skills/` exists
@@ -60,7 +59,7 @@ These are product pages authored directly in the public repository and must not 
 
 ## Generated From
 
-Generated at: `2026-05-19T12:54:11Z`
+Generated at: `2026-05-19T12:57:37Z`
 
 Private source branch: `feature/auth-work`
 

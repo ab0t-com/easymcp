@@ -13,7 +13,6 @@ REQUIRED = [
     "install.sh",
     "cli/install.sh",
     "scripts/install-git-hooks.sh",
-    ".github/workflows/security.yml",
     ".githooks/pre-commit",
     ".githooks/pre-push",
     "DOCKER_TAGS.md",
