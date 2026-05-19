@@ -286,6 +286,8 @@ Profiles must remain additive:
 - existing `instances.yaml` behavior should not change
 - generic MCP instances should keep working without EasyMCP-specific assumptions
 
+For a step-by-step setup flow, use `profile-onboarding-recipe.md`.
+
 ## Operational Tradeoffs
 
 ### One Instance Per Tenant

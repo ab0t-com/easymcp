@@ -138,6 +138,20 @@ api_auth:
   token_env: EASYMCP_AUTH_SERVICE_API_TOKEN
 ```
 
+Short-lived bearer tokens can be refreshed in memory. Store only env var names in config and pass the actual values through Docker/env-file:
+
+```yaml
+api_auth:
+  type: bearer
+  token_env: EASYMCP_API_ACCESS_TOKEN
+  refresh_url: https://auth.example.com/refresh
+  refresh_token_env: EASYMCP_API_REFRESH_TOKEN
+```
+
+Security boundary: the config stores env var names, not raw values. Docker administrators on the host can still inspect container environment variables, so treat Docker admin access as credential access. For enterprise deployments, use isolated hosts/orchestrators and rotate values in the real secret source.
+
+After changing credential refs or env-file values for a CLI-managed instance, run `easymcp restart <name> --wait` to recreate the container from the latest config/env metadata.
+
 Run with the secret supplied by the environment:
 
 ```bash

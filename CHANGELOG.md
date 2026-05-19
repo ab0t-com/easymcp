@@ -21,11 +21,32 @@ Release evidence:
 
 - Docker runtime published tags: `v0.1.1`, `v0.1.0`.
 - Docker `latest` tag: not currently published.
-- CLI latest mirrored release: `v0.1.6`.
+- CLI latest mirrored release: `v0.1.7`.
 - CLI default runtime image: `ab0tcom/easymcp:v0.1.0`.
-- CLI default EasyMCP port: `8000`.
+- CLI default managed EasyMCP host port: first available port in `10000-12000`.
 
 ## EasyMCP CLI
+
+### v0.1.7
+
+Public message:
+
+- Safer end-to-end tool usage: find the right API capability, preview the request, then run it intentionally.
+- Smoother service lifecycle management when configs or credentials change.
+- Stronger profile and account checks for teams working across customers, tenants, or environments.
+- Better agent setup confidence before handing tools to Claude, Codex, or other MCP clients.
+
+Customer benefit:
+
+- Faster path from an OpenAPI service to a working agent tool.
+- Less risk of calling the wrong tenant, account, or environment.
+- Easier credential rotation and operational recovery without manual Docker cleanup.
+
+Upgrade:
+
+```bash
+easymcp update --version v0.1.7 --yes
+```
 
 ### v0.1.6
 

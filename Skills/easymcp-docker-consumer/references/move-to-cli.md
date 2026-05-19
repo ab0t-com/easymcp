@@ -18,10 +18,11 @@ Use the `easymcp` CLI when the user needs:
 CLI equivalent:
 
 ```bash
-easymcp create public-api --openapi https://api.example.com/openapi.json --port 8000
+easymcp create public-api --openapi https://api.example.com/openapi.json
 easymcp start public-api
 easymcp check public-api
 easymcp discover refresh public-api
 easymcp agent install codex public-api
 ```
 
+Omit `--port` for the normal path; the CLI chooses the first free local host port in `10000-12000`.

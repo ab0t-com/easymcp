@@ -16,3 +16,4 @@ __pycache__/
 *.db
 node_modules/
 dist/tmp/
+.mcp.jso*

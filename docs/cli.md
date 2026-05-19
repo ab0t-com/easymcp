@@ -77,6 +77,7 @@ Installer behavior:
 - installs only `easymcp`
 - resolves the latest GitHub release unless `EASYMCP_VERSION` is set
 - verifies `checksums.txt` by default when available
+- prints checksum verification before final install success
 - installs to `~/.local/bin` by default
 - does not auto-escalate with `sudo`
 - can be rerun safely as an updater without deleting `~/.easymcp`
@@ -149,19 +150,20 @@ Codex CLI:
 ```bash
 easymcp create petstore \
   --openapi https://petstore3.swagger.io/api/v3/openapi.json \
-  --group demos \
-  --port 8000
+  --group demos
 ```
 
 This does three things:
 - writes a managed EasyMCP config to `~/.easymcp/configs/petstore.yaml`
 - registers a managed local runtime instance in `~/.easymcp/instances.yaml`
 - prepares it to run from the EasyMCP Docker image
+- auto-selects the first free local host port in `10000-12000`; pass `--port` only when you need a specific port
 
 Start it:
 
 ```bash
 easymcp start petstore
+easymcp start petstore --wait --timeout 60s
 ```
 
 Check it:
@@ -205,6 +207,43 @@ easymcp create billing \
 ```
 
 If a required env var is not set at create/start time, the CLI warns but still records the instance so credentials can be supplied later.
+
+Security boundary: EasyMCP stores env var names, not raw secret values, but Docker administrators can inspect container environment variables. Treat local Docker access as credential access and avoid sharing one Docker host across unrelated tenants without isolation.
+
+To change the downstream API credential reference after creation:
+
+```bash
+easymcp api-auth get billing
+easymcp api-auth set billing --type bearer --token-env EASYMCP_BILLING_TOKEN
+easymcp api-auth clear billing
+```
+
+For short-lived upstream bearer tokens, add a refresh-token env ref and refresh URL. EasyMCP refreshes in memory before JWT expiry when possible and retries once after a downstream `401`:
+
+```bash
+easymcp api-auth set billing \
+  --type bearer \
+  --token-env EASYMCP_BILLING_ACCESS_TOKEN \
+  --refresh-url https://auth.example.com/refresh \
+  --refresh-token-env EASYMCP_BILLING_REFRESH_TOKEN
+```
+
+To change MCP client auth for an existing instance:
+
+```bash
+easymcp instance auth get billing
+easymcp instance auth set billing --auth-mode bearer_env --token-env-var EASYMCP_BILLING_MCP_TOKEN
+easymcp instance auth clear billing
+```
+
+These commands store env var names only. Restart or reload a running EasyMCP container after changing downstream API auth:
+
+```bash
+easymcp restart billing --wait --timeout 60s
+easymcp reload billing
+```
+
+`restart` stops the current runtime, rebuilds launch args from the latest config/env metadata, starts it again, and reports final state. `reload` currently uses the same safe restart path because the Docker runtime does not support true in-process hot reload yet.
 
 The EasyMCP config contract is documented in:
 - `design/easymcp-config-contract.md`
@@ -319,7 +358,6 @@ easymcp instance add-easymcp \
   --name easymcp-local \
   --config ../examples/petstore.yaml \
   --group demos \
-  --port 8000 \
   --image ab0tcom/easymcp:v0.1.0
 ```
 
@@ -428,9 +466,17 @@ easymcp export <name>
 easymcp image get <name>
 easymcp image set <name> --image ab0tcom/easymcp:v1.2.3
 easymcp start <name>
+easymcp start <name> --wait --timeout 60s
+easymcp group start <group> --wait --timeout 60s
 easymcp stop <name>
+easymcp stop <name> --timeout 10s
+easymcp restart <name> --wait --timeout 60s
+easymcp reload <name>
 easymcp rm <name>
 ```
+
+`stop` reports whether a process was running, whether a signal was sent, and the final state. JSON output includes the same final-state fields for agent use.
+`restart` and `reload` also report prior state, stop/start results, final state, missing env refs, and agent reconnect guidance.
 
 ### Docker-like aliases
 
@@ -519,6 +565,8 @@ Run doctor before installing profile-aware agent config or testing a tenant-scop
 ```bash
 easymcp profile doctor acme-prod
 easymcp --json profile doctor acme-prod
+easymcp profile verify acme-prod --agent-auth-profile codex_default
+easymcp profile doctor acme-prod --include-runtime --agent-auth-profile codex_default
 ```
 
 Doctor checks:
@@ -527,6 +575,8 @@ Doctor checks:
 - required credential env vars are set
 - tenant metadata references a valid credential ref
 - profile directory/file permissions are private
+
+`profile verify` adds live HTTP MCP checks for bound instances. If `--agent-auth-profile` is provided, the command projects that profile's credential refs into the check so profile-specific MCP bearer/API-key auth can be validated without writing secret values into config files.
 
 Agent auth profiles project a profile credential ref into Claude Code or Codex config without storing token values:
 
@@ -570,6 +620,7 @@ Current profile storage:
 - no raw secret values; credential refs store names such as `EASYMCP_ACME_PAYMENT_API_TOKEN`
 - credential list output shows set/unset status, not credential values
 - audit records are append-only JSONL entries for profile mutations and profile-aware agent installs
+- full onboarding recipe: `docs/platform/profile-onboarding-recipe.md`
 
 ### Agent config
 
@@ -579,9 +630,17 @@ easymcp agent render claude-code <name> --scope project
 easymcp agent render codex <name>
 easymcp agent install claude-code <name> --scope project
 easymcp agent install codex <name>
+easymcp agent verify claude-code <name> --scope project
+easymcp agent verify codex <name>
 easymcp agent uninstall claude-code <name> --scope project
 easymcp agent uninstall codex <name>
 ```
+
+Agent install behavior:
+- updates the agent config file for future sessions
+- does not guarantee an already-running Claude/Codex session reloads immediately
+- use `easymcp agent verify ...` to confirm the config entry exists and matches the current instance contract
+- restart the agent session if the MCP server does not appear after install
 
 ### Discovery and search
 
@@ -594,10 +653,15 @@ easymcp discover refresh --group auth
 easymcp discover refresh --all
 
 easymcp discover ls auth-service
+easymcp discover list --instance auth-service
 easymcp discover inspect login_auth_login_post --instance auth-service
 easymcp discover search login
 easymcp discover search tenant --group auth
 easymcp discover eval evals/auth_service_discovery.jsonl --instance auth-service --strategy mcp_thin
+
+easymcp contract export auth-service --format markdown
+easymcp contract export --group auth --format json
+easymcp contract export --profile acme-prod --output ./contracts/acme-prod.md
 ```
 
 Discovery behavior:
@@ -608,6 +672,14 @@ Discovery behavior:
 - uses keyword matching plus cosine ranking over cached embeddings
 - is optional and does not change agent configs
 - `find` is the fast human-oriented shortcut when you just want to type a query
+- natural aliases are supported for common vocabulary: `discover list`, `instances`, and `profiles`
+- search output includes cached auth hints so humans and agents can see whether a tool is callable now or needs credentials first
+
+Contract export behavior:
+- exports cached tool contracts as JSON or Markdown for agents, docs, debugging, and support
+- supports instance, group, profile, or full-cache scopes
+- includes tool names, endpoints, parameters, request/response schemas, payload examples, auth hints, tenant hints, and side-effect hints
+- intentionally excludes embedding vectors and internal ranking documents from the exported bundle
 
 Current embedding adapter:
 - provider: `hashed_bow`
@@ -632,7 +704,7 @@ Evaluation:
 This repo has been exercised live against:
 
 - OpenAPI source: `https://auth.service.ab0t.com/openapi.json`
-- local MCP URL: `http://localhost:8091/mcp`
+- local MCP URL: `http://localhost:10001/mcp`
 
 Validated flow:
 
@@ -640,7 +712,7 @@ Validated flow:
 easymcp create auth-service \
   --openapi https://auth.service.ab0t.com/openapi.json \
   --group auth \
-  --port 8091 \
+  --port 10001 \
   --image ab0tcom/easymcp:v0.1.0
 
 easymcp start auth-service

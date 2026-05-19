@@ -118,17 +118,24 @@ resolve_version() {
 verify_checksum() {
   local file="$1"
   local checksums="$2"
+  local basename
+  basename="$(basename "$file")"
+  grep -q " ${basename}\$" "$checksums" || fail "no checksum entry found for ${basename}"
   if command -v sha256sum >/dev/null 2>&1; then
-    (cd "$(dirname "$file")" && sha256sum -c "$(basename "$checksums")" --ignore-missing)
+    local output
+    output="$(cd "$(dirname "$file")" && sha256sum -c "$(basename "$checksums")" --ignore-missing)"
+    [ -n "$output" ] || fail "checksum verification produced no result for ${basename}"
+    printf '%s\n' "$output" >&2
   elif command -v shasum >/dev/null 2>&1; then
     local expected actual
-    expected="$(grep " $(basename "$file")\$" "$checksums" | awk '{print $1}')"
-    [ -n "$expected" ] || fail "no checksum entry found for $(basename "$file")"
+    expected="$(grep " ${basename}\$" "$checksums" | awk '{print $1}')"
     actual="$(shasum -a 256 "$file" | awk '{print $1}')"
-    [ "$expected" = "$actual" ] || fail "checksum mismatch for $(basename "$file")"
+    [ "$expected" = "$actual" ] || fail "checksum mismatch for ${basename}"
+    echo "${basename}: OK" >&2
   else
     fail "checksum verification requested but sha256sum/shasum is unavailable"
   fi
+  echo "Checksum verified for ${basename}" >&2
 }
 
 main() {
@@ -190,8 +197,12 @@ main() {
   if [ "${BINARY}" = "easymcp" ]; then
     ln -sfn "${INSTALL_DIR}/${BINARY}" "${INSTALL_DIR}/mcpctl"
   fi
-  echo "Installed ${BINARY} to ${INSTALL_DIR}/${BINARY}" >&2
   echo "Run '${BINARY} --help' to get started." >&2
+  if [ "$CHECKSUMS" = "1" ]; then
+    echo "Verified and installed ${BINARY} ${version} to ${INSTALL_DIR}/${BINARY}" >&2
+  else
+    echo "Installed ${BINARY} ${version} to ${INSTALL_DIR}/${BINARY} (checksum verification disabled)" >&2
+  fi
 }
 
 main "$@"

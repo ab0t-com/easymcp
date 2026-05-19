@@ -38,6 +38,24 @@ Important point:
 - they should not be used to store raw API keys as normal practice
 - raw literal headers remain possible in generic MCP mode, but they are the less safe path for multi-user or shared-host usage
 
+## Docker env secret boundary
+
+EasyMCP avoids storing raw secret values in `~/.easymcp`, generated config files, profile files, and audit logs. That does **not** make Docker environment variables a secret vault.
+
+On a local Docker host, users with Docker administrator access can usually inspect container configuration and environment variables. Treat Docker access as equivalent to access to the runtime credentials passed into the container.
+
+Practical guidance:
+- pass only the env vars the instance needs
+- prefer namespaced env vars such as `EASYMCP_PAYMENT_API_TOKEN`
+- use `--env-file` files with restrictive filesystem permissions when local shell export is too broad
+- avoid shared Docker hosts for unrelated tenants unless the host has proper isolation
+- rotate values in the real secret source, then restart/apply the EasyMCP runtime
+
+Future enterprise direction:
+- secret-provider adapters for AWS Secrets Manager, GCP Secret Manager, Vault, 1Password, and similar systems
+- runtime injection that avoids long-lived shell env values where the deployment platform supports it
+- profile metadata that records secret-provider references without storing secret values
+
 ## Recommended access pattern
 
 ### 1. Treat the instance definition as non-secret
@@ -73,9 +91,26 @@ With profiles, the same rule applies:
 easymcp profile credential ls acme-prod
 export EASYMCP_ACME_PAYMENT_API_TOKEN="new-value-from-secret-manager"
 easymcp profile doctor acme-prod
+easymcp profile verify acme-prod --agent-auth-profile codex_default
 ```
 
 If the env var name is unchanged, do not rewrite `profiles.json` just to rotate the secret value.
+
+If the env var name needs to change after the instance exists, update the reference, not the raw value:
+
+```bash
+# Downstream API auth used by the EasyMCP Docker runtime.
+easymcp api-auth set payment-service \
+  --type bearer \
+  --token-env EASYMCP_ACME_PAYMENT_API_TOKEN
+
+# MCP client auth used by easymcp check/call and rendered agent configs.
+easymcp instance auth set payment-service \
+  --auth-mode bearer_env \
+  --token-env-var EASYMCP_ACME_MCP_TOKEN
+```
+
+Both commands update `~/.easymcp` state with env var names only. Restart running containers after changing downstream API auth so Docker receives the updated env passthrough and mounted config.
 
 ### 3. Use per-service env names
 
@@ -122,6 +157,8 @@ Practical commands:
 ```bash
 easymcp inspect payment-service
 easymcp export payment-service --format yaml
+easymcp api-auth get payment-service
+easymcp api-auth set payment-service --type bearer --token-env EASYMCP_PAYMENT_API_TOKEN
 easymcp stop payment-service
 easymcp start payment-service
 easymcp check payment-service
@@ -133,6 +170,7 @@ What to verify:
 - the runtime restarted successfully
 - the downstream API no longer returns 401/403 for a known-good flow
 - logs do not show traffic using the wrong tenant or wrong auth header
+- `profile verify` passes when using the expected profile/agent-auth projection
 
 ### MCP auth credential change
 
@@ -147,6 +185,16 @@ Examples that may require agent-side changes:
 - auth header name changed
 - issuer/audience changed
 - endpoint URL changed
+
+Use `instance auth` for the client-facing MCP auth reference:
+
+```bash
+easymcp instance auth get payment-service
+easymcp instance auth set payment-service \
+  --auth-mode bearer_env \
+  --token-env-var EASYMCP_PAYMENT_MCP_TOKEN
+easymcp instance auth clear payment-service
+```
 
 If only the secret value changed and the env var name stayed the same, agent configs usually do not need to be rewritten.
 

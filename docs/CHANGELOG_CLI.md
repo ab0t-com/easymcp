@@ -10,6 +10,32 @@ Release evidence:
 - Release archives: [`../releases/downloads/`](../releases/downloads/)
 - Checksums: [`../releases/downloads/checksums.txt`](../releases/downloads/checksums.txt)
 
+## v0.1.7
+
+### Public Summary
+
+`v0.1.7` makes EasyMCP safer and easier to use in real agent workflows, especially when teams manage multiple services, tenants, credentials, and agent clients.
+
+### What Changed
+
+- Safer path from tool discovery to intentional execution.
+- Clearer guidance when an agent or human needs the right API capability.
+- Easier runtime recovery after config, credential, or environment changes.
+- Better profile, tenant, credential, and agent setup checks for enterprise workflows.
+- More readable lifecycle output so operators can see what changed and what is running.
+
+### User Value
+
+- Users spend less time reading schemas and more time using the right tool safely.
+- Teams reduce the risk of sending requests with the wrong credentials or tenant context.
+- Support and operations get clearer status when starting, stopping, restarting, or verifying services.
+
+### Update
+
+```bash
+easymcp update --version v0.1.7 --yes
+```
+
 ## v0.1.6
 
 ### Public Summary
