@@ -648,6 +648,7 @@ Agent install behavior:
 easymcp find login
 easymcp find tenant --group auth
 
+easymcp discover refresh
 easymcp discover refresh <instance>
 easymcp discover refresh --group auth
 easymcp discover refresh --all
@@ -657,7 +658,8 @@ easymcp discover list --instance auth-service
 easymcp discover inspect login_auth_login_post --instance auth-service
 easymcp discover search login
 easymcp discover search tenant --group auth
-easymcp discover eval evals/auth_service_discovery.jsonl --instance auth-service --strategy mcp_thin
+easymcp discover eval cli/manager/evals/auth_service_discovery.jsonl --instance auth-service --strategy mcp_thin
+easymcp discover eval cli/manager/evals/auth_service_discovery.jsonl --instance auth-service --strategy openai_openapi_fulltext --yes
 
 easymcp contract export auth-service --format markdown
 easymcp contract export --group auth --format json
@@ -667,6 +669,7 @@ easymcp contract export --profile acme-prod --output ./contracts/acme-prod.md
 Discovery behavior:
 - builds a manager-side cache under `~/.easymcp/cache/`
 - works for EasyMCP and generic HTTP MCP instances
+- bare `easymcp discover refresh` refreshes all registered instances
 - stores canonical OpenAPI-linked tool objects where resolvable
 - stores cached document text, document hashes, embedding vectors, and adapter metadata
 - uses keyword matching plus cosine ranking over cached embeddings
@@ -681,23 +684,46 @@ Contract export behavior:
 - includes tool names, endpoints, parameters, request/response schemas, payload examples, auth hints, tenant hints, and side-effect hints
 - intentionally excludes embedding vectors and internal ranking documents from the exported bundle
 
-Current embedding adapter:
-- provider: `hashed_bow`
-- version: `v1`
-- shape: local hashed bag-of-words dense vector
-- reason: offline, deterministic, no API key required
-
-The discovery engine is adapter-based internally so a future external embedding provider can be added without changing the CLI UX.
+Embedding providers:
+- `hashed_bow` is the default when no OpenAI key/provider is configured. It is built in, free, deterministic, uses no API key, and does not make network calls.
+- `openai` becomes the default when `EASYMCP_OPENAI_API_KEY`, `OPENAI_API_KEY`, or `EASYMCP_EMBEDDING_PROVIDER=openai` is configured. It calls the OpenAI embeddings API and may bill the user's OpenAI account.
+- OpenAI embedding input is OpenAPI-derived tool metadata: operation names, endpoints, descriptions, parameters, schemas, auth hints, tags, examples, and aliases.
+- Runtime call payloads and downstream API tokens should not be embedded.
+- Cached vectors are reused when document hash, strategy, provider, base URL, and model match.
+- Set `EASYMCP_EMBEDDING_PROVIDER=hashed_bow` or pass `--strategy mcp_thin` to force local/offline discovery while an OpenAI key is present.
+- Paid OpenAI refresh/eval requires informed consent. Use `--yes` for one command, or `--approve-paid-api` to persist consent in `~/.easymcp/settings.json`.
 
 Current strategies:
 - `mcp_thin`
 - `openapi_fulltext`
+- `openai_mcp_thin`
+- `openai_openapi_fulltext`
+
+OpenAI-backed discovery:
+
+```bash
+export EASYMCP_OPENAI_API_KEY="sk-..."
+# OPENAI_API_KEY is also accepted when EASYMCP_OPENAI_API_KEY is not set.
+
+easymcp discover refresh auth-service --yes
+
+easymcp find "create me a api key please" --instance auth-service
+```
+
+Persist paid API consent:
+
+```bash
+easymcp discover refresh auth-service --approve-paid-api
+easymcp settings show
+easymcp settings paid-api revoke
+```
 
 Evaluation:
 - use `easymcp discover eval <jsonl>`
-- JSONL cases live in `manager/evals/`
-- current auth-service suite: `manager/evals/auth_service_discovery.jsonl`
-- persona-oriented suite: `manager/evals/auth_service_personas.jsonl`
+- JSONL cases live in `cli/manager/evals/` from the repo root
+- current auth-service suite: `cli/manager/evals/auth_service_discovery.jsonl`
+- persona-oriented suite: `cli/manager/evals/auth_service_personas.jsonl`
+- OpenAI-backed evals embed eval queries and therefore require `--yes`, saved paid API consent, or `--approve-paid-api` plus `EASYMCP_OPENAI_API_KEY` or `OPENAI_API_KEY`.
 
 ### Auth-service smoke flow
 

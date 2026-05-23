@@ -126,7 +126,7 @@ easymcp discover list --json
 If no useful tools are cached, refresh discovery:
 
 ```bash
-easymcp discover refresh --all
+easymcp discover refresh
 ```
 
 If the user mentions a specific service, scope aggressively:
@@ -264,8 +264,29 @@ Best for:
 Use after starting a server or after its OpenAPI/tool surface changes.
 
 ```bash
+easymcp discover refresh
 easymcp discover refresh billing-service
 ```
+
+Bare `easymcp discover refresh` refreshes all registered instances. Use an instance name or `--group` when you want a narrower update.
+
+Refresh uses the built-in local `hashed_bow` vectorizer when no OpenAI key/provider is configured. It is free and offline. When `EASYMCP_OPENAI_API_KEY`, `OPENAI_API_KEY`, or `EASYMCP_EMBEDDING_PROVIDER=openai` is configured, OpenAI-backed discovery becomes the default:
+
+```bash
+export EASYMCP_OPENAI_API_KEY="sk-..."
+# OPENAI_API_KEY is also accepted when EASYMCP_OPENAI_API_KEY is not set.
+easymcp discover refresh billing-service --yes
+```
+
+This is a paid OpenAI API action and requires informed consent for refresh/eval. Use `--yes` for one command, or `--approve-paid-api` to save consent in `~/.easymcp/settings.json`:
+
+```bash
+easymcp discover refresh billing-service --approve-paid-api
+easymcp settings show
+easymcp settings paid-api revoke
+```
+
+EasyMCP embeds OpenAPI-derived tool metadata and caches vectors so unchanged tools are not re-embedded. Set `EASYMCP_EMBEDDING_PROVIDER=hashed_bow` or pass `--strategy mcp_thin` to force local/offline search while an OpenAI key is present.
 
 Best for:
 
@@ -279,6 +300,7 @@ Use when the user knows the intent but not the tool name.
 
 ```bash
 easymcp find "send a payment reminder for an overdue invoice"
+easymcp find "send a payment reminder for an overdue invoice" --strategy mcp_thin
 ```
 
 Best for:
@@ -544,7 +566,7 @@ Likely cause: discovery cache is empty or stale.
 Fix:
 
 ```bash
-easymcp discover refresh --all
+easymcp discover refresh
 ```
 
 ### Tool Seems Wrong

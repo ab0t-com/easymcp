@@ -10,6 +10,34 @@ Release evidence:
 - Release archives: [`../releases/downloads/`](../releases/downloads/)
 - Checksums: [`../releases/downloads/checksums.txt`](../releases/downloads/checksums.txt)
 
+## v0.2.0
+
+### Public Summary
+
+`v0.2.0` makes paid OpenAI-backed search safe by default. The first time `easymcp find` or `easymcp discover search` would call the OpenAI embeddings API, EasyMCP pauses and asks for your confirmation — no more accidental spend.
+
+### What Changed
+
+- `find` and `discover search` now show a clear confirmation card before any paid OpenAI call. Confirm one search with `--yes`, or persist consent once with `--approve-paid-api` and EasyMCP remembers.
+- Local search (`--strategy mcp_thin`, the default when no OpenAI key is set) continues to work offline with no confirmation, no key, and no charge.
+- `EASYMCP_EMBEDDING_PROVIDER=hashed_bow` reliably forces local search even when an OpenAI key is present.
+- `Ctrl-C` during an in-progress `find` or `discover search` now cancels the underlying OpenAI request promptly.
+- Error and help text refers to current flags only — no more stale `--embedding-provider openai --embedding-strategy ...` suggestions.
+- JSON-mode `find` returns a clear actionable error and a non-zero exit when paid use is blocked, so scripts and agents can detect the gate cleanly.
+- Added a privacy note: anything in your OpenAPI spec — including example values and descriptions — is eligible to be embedded when an OpenAI strategy is selected. Treat the spec the way you would treat shared documentation.
+
+### User Value
+
+- No surprise OpenAI charges; paid use is always opt-in with both one-shot and persisted-consent options.
+- First-time users can use `find` immediately without a key; nothing about the local experience changed.
+- Operators can cancel long-running searches; agents can detect the consent gate via a deterministic exit code in JSON mode.
+
+### Upgrade
+
+```bash
+easymcp update --version v0.2.0 --yes
+```
+
 ## v0.1.7
 
 ### Public Summary

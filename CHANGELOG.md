@@ -21,11 +21,31 @@ Release evidence:
 
 - Docker runtime published tags: `v0.1.1`, `v0.1.0`.
 - Docker `latest` tag: not currently published.
-- CLI latest mirrored release: `v0.1.7`.
+- CLI latest mirrored release: `v0.2.0`.
 - CLI default runtime image: `ab0tcom/easymcp:v0.1.0`.
 - CLI default managed EasyMCP host port: first available port in `10000-12000`.
 
 ## EasyMCP CLI
+
+### v0.2.0
+
+Public message:
+
+- Asking `find` something no longer accidentally spends on the OpenAI embeddings API. The first time a paid search would run, EasyMCP shows what is about to happen and waits for your confirmation. Confirm once with `--approve-paid-api` and EasyMCP remembers your choice; confirm for a single command with `--yes`; or stay fully offline with `--strategy mcp_thin` or `EASYMCP_EMBEDDING_PROVIDER=hashed_bow`.
+- `Ctrl-C` during a slow `find` or `discover search` now cancels the in-flight call cleanly instead of waiting for it to return.
+- Error messages and help text point at the commands and flags that exist today, not stale ones.
+
+Customer benefit:
+
+- No surprise OpenAI charges. Paid search is opt-in, with both one-shot and persistent ways to approve.
+- Faster, calmer iteration: when a search is taking too long, just cancel it.
+- Better hints when something is wrong, so it is clearer how to fix it.
+
+Upgrade:
+
+```bash
+easymcp update --version v0.2.0 --yes
+```
 
 ### v0.1.7
 

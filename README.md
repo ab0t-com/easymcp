@@ -38,14 +38,47 @@ easymcp start auth-service --wait
 easymcp check auth-service
 ```
 
+Docker for MCP
+
+```bash
+ubuntu@dev-ab0t:~/app/mcp$ easymcp ps
+NAME          GROUP  TYPE     STATUS   HEALTH   PORTS                       URL                         IMAGE                   PID    
+------------  -----  -------  -------  -------  --------------------------  --------------------------  ----------------------  -------
+auth-service  auth   easymcp  running  healthy  0.0.0.0:10500->10500/tcp,…  http://localhost:10500/mcp  ab0tcom/easymcp:v0.1.0  2032738
+petstore      -      easymcp  running  healthy  8000/tcp, 0.0.0.0:9001->9…  http://localhost:9001/mcp   ab0tcom/easymcp:v0.1.0  1990745
+```
+
 Discover what tools it exposes:
 
 ```bash
+easymcp discover refresh
 easymcp discover refresh auth-service
 easymcp find "I need to create an API key" --instance auth-service
 ```
 
-`find` searches the cached discovery index built from the service OpenAPI document. Refresh reads operation names, endpoints, descriptions, parameters, schemas, auth hints, and other tool metadata, embeds those tool records into a vector index, and stores the vectors plus metadata in the local EasyMCP cache. Search combines vector similarity with keyword signals, so humans and agents can ask by intent instead of memorizing generated tool names.
+`find` searches the cached discovery index built from the service OpenAPI document. Bare `discover refresh` refreshes all registered instances; passing a name refreshes one. Refresh reads operation names, endpoints, descriptions, parameters, schemas, auth hints, and other tool metadata, embeds those tool records into a vector index, and stores the vectors plus metadata in the local EasyMCP cache. Search combines vector similarity with keyword signals, so humans and agents can ask by intent instead of memorizing generated tool names.
+
+Without an OpenAI key, EasyMCP uses its local `hashed_bow` vectorizer. It is built in, free, deterministic, and does not call an external API. When `EASYMCP_OPENAI_API_KEY` or `OPENAI_API_KEY` is configured, OpenAI-backed `openai_openapi_fulltext` becomes the default discovery/search strategy so users do not need strategy flags for normal use.
+
+```bash
+export EASYMCP_OPENAI_API_KEY="sk-..."
+# OPENAI_API_KEY is also accepted when EASYMCP_OPENAI_API_KEY is not set.
+
+easymcp discover refresh --yes
+easymcp find "create me a api key please" --instance auth-service
+```
+
+OpenAI embedding strategies use your OpenAI API key and may bill your account. Refresh and eval require informed consent before paid embedding calls. Use `--yes` for one command, or use `--approve-paid-api` once to save consent in `~/.easymcp/settings.json`:
+
+```bash
+easymcp discover refresh --approve-paid-api
+easymcp settings show
+easymcp settings paid-api revoke
+```
+
+EasyMCP sends OpenAPI-derived tool metadata for embedding, not runtime call payloads or downstream API tokens. Cached vectors are reused when the document hash, strategy, provider, and model are unchanged. To force local/offline behavior while a key is present, set `EASYMCP_EMBEDDING_PROVIDER=hashed_bow` or pass `--strategy mcp_thin`.
+
+Keep secrets out of your OpenAPI examples and descriptions. When an OpenAI-backed strategy is selected, any text inside the spec — including `example` values, parameter descriptions, and field summaries — is eligible to be sent to the embedding API. Treat your OpenAPI spec the way you would treat shared documentation.
 
 Example intent search:
 
@@ -262,6 +295,42 @@ easymcp restart payment-service --wait
 ```
 
 Security boundary: Docker administrators on the same host can inspect container environment values. Treat Docker admin access as credential access.
+
+## Find by Intent, Across Services
+
+Ask in plain English and `find` returns the right tool, endpoint, action, and ready-to-paste next commands — for whatever services you've connected.
+
+```bash
+easymcp find "I need to issue a refund to a customer for an order that was charged" \
+  --instance payment-service
+```
+
+```text
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Top Match                                                                                                        │
+│ Query: I need to issue a refund to a customer for an order that was charged                                      │
+│ Tool: create_refund_refunds                                                                                      │
+│ Scope: payment-service / -                                                                                       │
+│ Endpoint: POST /refunds/{org_id}/                                                                                │
+│ Action: mutates                                                                                                  │
+│ Summary: Create a refund for a payment. Side effects: - Creates refund record in database - Initiates refund …  │
+│ Commands                                                                                                         │
+│   Inspect:  easymcp discover inspect create_refund_refunds --instance payment-service                            │
+│   Template: easymcp discover inspect create_refund_refunds --instance payment-service --payload-template         │
+│   Dry Run:  easymcp call create_refund_refunds --instance payment-service --data '{"reason":"…"}' --dry-run      │
+│   Call:     easymcp call create_refund_refunds --instance payment-service --data '{"reason":"…"}'                │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+Results for "I need to issue a refund to a customer for an o…" • 3 matches
+──────────────────────────────────────────────────────────────────────────
+RANK  TOOL                          ENDPOINT                                ACTION   SCORE
+----  ----------------------------  --------------------------------------  -------  -----
+1     create_refund_refunds         POST /refunds/{org_id}/                 mutates  0.54
+2     create_batch_refunds_refunds  POST /refunds/{org_id}/batch            mutates  0.51
+3     create_refund_payments        POST /payments/{org_id}/{payment_id}/…  mutates  0.48
+```
+
+Same loop for any service you connect: `easymcp create` → `easymcp start` → `easymcp discover refresh` → `easymcp find "..."`.
 
 ## Human and Agent Usage Guide
 
