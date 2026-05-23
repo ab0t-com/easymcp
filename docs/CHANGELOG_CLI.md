@@ -10,6 +10,28 @@ Release evidence:
 - Release archives: [`../releases/downloads/`](../releases/downloads/)
 - Checksums: [`../releases/downloads/checksums.txt`](../releases/downloads/checksums.txt)
 
+## v0.2.1
+
+### Public Summary
+
+`v0.2.1` is a focused UX-polish release on top of `v0.2.0`. Two long-time paper cuts surfaced during the v0.2.0 release audit, both with zero-risk fixes:
+
+### What Changed
+
+- `easymcp create <name> --openapi <url>` now prints a "Next Steps" card after registering the instance, naming the exact commands to run next: `easymcp instance start <name> --wait`, `easymcp check <name>`, `easymcp discover refresh <name>`, and `easymcp find "<intent>" --instance <name>`. The most common new-user gotcha — "I created it but it isn't running" — now self-corrects from the CLI output.
+- `easymcp profile delete <name>` works as an alias for `easymcp profile rm <name>`. Reaching for the common verb succeeds instead of returning "unknown command".
+
+### User Value
+
+- New users see the next correct command without consulting docs.
+- The CLI matches the `delete`/`rm` parity users expect from `kubectl`, `gh`, and `docker`.
+
+### Upgrade
+
+```bash
+easymcp update --version v0.2.1 --yes
+```
+
 ## v0.2.0
 
 ### Public Summary

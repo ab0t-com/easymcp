@@ -21,11 +21,29 @@ Release evidence:
 
 - Docker runtime published tags: `v0.1.1`, `v0.1.0`.
 - Docker `latest` tag: not currently published.
-- CLI latest mirrored release: `v0.2.0`.
+- CLI latest mirrored release: `v0.2.1`.
 - CLI default runtime image: `ab0tcom/easymcp:v0.1.0`.
 - CLI default managed EasyMCP host port: first available port in `10000-12000`.
 
 ## EasyMCP CLI
+
+### v0.2.1
+
+Public message:
+
+- `easymcp create` now prints the exact next-step commands (`start`, `check`, `discover refresh`, `find`) right after a new instance is registered, so the sequence is obvious without checking docs.
+- `easymcp profile delete` now works as an alias for `easymcp profile rm`, matching the `delete`/`rm` parity in `kubectl`, `gh`, and `docker`.
+
+Customer benefit:
+
+- Smoother first-time setup: every command you'd type next is right there in the output of the previous one.
+- Less head-scratching when reaching for the common verb.
+
+Upgrade:
+
+```bash
+easymcp update --version v0.2.1 --yes
+```
 
 ### v0.2.0
 
