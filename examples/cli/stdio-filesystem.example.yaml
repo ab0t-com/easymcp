@@ -1,0 +1,79 @@
+# Minimal stdio MCP server registration for EasyMCP.
+#
+# A stdio MCP server is any binary that speaks newline-delimited JSON-RPC
+# 2.0 on stdin/stdout, per the MCP transports spec:
+#   https://modelcontextprotocol.io/specification/2025-06-18/basic/transports
+#
+# Register one with the EasyMCP CLI and EasyMCP will:
+#   - probe it on demand (`easymcp check`, `easymcp discover refresh`)
+#   - cache its tool catalogue (searchable via `easymcp find`)
+#   - render the correct `.mcp.json` / `~/.codex/config.toml` for Claude Code
+#     and Codex (`easymcp agent install`)
+#
+# Stdio servers are launched by the consuming agent client on demand.
+# `easymcp instance start <stdio>` deliberately refuses — use
+# `easymcp agent install` instead.
+#
+# Equivalent CLI registration:
+#   easymcp instance add filesystem \
+#     --kind local_process --transport stdio \
+#     --command npx --arg -y \
+#     --arg @modelcontextprotocol/server-filesystem \
+#     --arg /tmp/easymcp-sandbox \
+#     --group local
+
+schema_version: v1alpha1
+instances:
+
+  # Reference filesystem MCP server from the official modelcontextprotocol org.
+  # Constrains the agent to one writable directory.
+  filesystem:
+    name: filesystem
+    description: Local stdio MCP server for filesystem access
+    enabled: true
+    group: local
+    kind: local_process
+    transport: stdio
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-filesystem"
+      - /tmp/easymcp-sandbox
+    auth:
+      mode: none
+
+  # Stdio server installed once via pipx / uvx, then invoked directly.
+  # Replace `acme-mcp` with any binary on PATH that speaks MCP over stdio.
+  acme-cli:
+    name: acme-cli
+    description: Internal Acme tooling exposed over stdio MCP
+    enabled: true
+    group: internal
+    kind: local_process
+    transport: stdio
+    command: acme-mcp
+    args:
+      - --read-only
+    env:
+      # Env names only — EasyMCP never stores secret values.
+      ACME_API_TOKEN: ""
+    auth:
+      mode: none
+
+  # Stdio server requiring a working directory (e.g. a project root).
+  git-repo:
+    name: git-repo
+    description: Stdio MCP server scoped to a single git working tree
+    enabled: true
+    group: dev
+    kind: local_process
+    transport: stdio
+    command: npx
+    args:
+      - -y
+      - "@modelcontextprotocol/server-git"
+      - --repository
+      - /home/me/code/my-project
+    cwd: /home/me/code/my-project
+    auth:
+      mode: none

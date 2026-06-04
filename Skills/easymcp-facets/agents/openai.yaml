@@ -1,0 +1,4 @@
+interface:
+  display_name: "EasyMCP Facets"
+  short_description: "Carve a small intent-shaped slice of tools out of a large MCP instance"
+  default_prompt: "Use $easymcp-facets to design a facet, populate it, and install only that slice into an agent."

@@ -2,6 +2,8 @@
 
 - `docker-runtime.md` — Docker image and runtime overview.
 - `cli.md` — CLI lifecycle, agent install, discovery, and profile management.
+- `stdio-mcp-servers.md` — register, probe, search, and enrich stdio MCP servers (filesystem, git, locally-built CLIs) — including the OpenAPI hint sidecar.
+- `discovery-embedding-search.md` — how `easymcp find` ranks results across all your servers.
 - `human-agent-usage-guide.md` — practical guide for humans and LLM agents using EasyMCP.
 - `profiles-and-tenants.md` — practical profile and tenant guide.
 - `profile-onboarding-recipe.md` — repeatable profile setup flow for tenant/customer environments.

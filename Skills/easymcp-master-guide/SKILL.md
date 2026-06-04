@@ -10,11 +10,12 @@ description: Use as the master routing and overview skill for EasyMCP when a use
 Classify the user’s task before going deep:
 
 1. **Connect API to agent** -> use `$easymcp-api-to-agent`.
-2. **Run Docker image directly** -> use `$easymcp-docker-consumer`.
-3. **Design profiles, tenants, customer separation** -> use `$easymcp-enterprise-profiles`.
-4. **Design production auth** -> use `$easymcp-auth-architect`.
-5. **Create or improve agent skills and compressed knowledge packs** -> use `$agentic-skill-distiller`.
-6. **Troubleshoot public install, Docker pull, release artifacts, docs** -> use `$easymcp-public-release-support`.
+2. **Carve a small slice of tools out of a large MCP instance for token cost or tool-call accuracy** -> use `$easymcp-facets`.
+3. **Run Docker image directly** -> use `$easymcp-docker-consumer`.
+4. **Design profiles, tenants, customer separation** -> use `$easymcp-enterprise-profiles`.
+5. **Design production auth** -> use `$easymcp-auth-architect`.
+6. **Create or improve agent skills and compressed knowledge packs** -> use `$agentic-skill-distiller`.
+7. **Troubleshoot public install, Docker pull, release artifacts, docs** -> use `$easymcp-public-release-support`.
 
 If the user asks a broad strategy question, answer with a short map first, then invoke the most relevant specialized skill.
 

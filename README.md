@@ -8,6 +8,16 @@ EasyMCP turns existing OpenAPI services into MCP tools that AI agents can discov
 
 If you already have APIs, EasyMCP gives you a practical path from “we have endpoints” to “Codex, Claude, and other agents can safely work with these tools” without publishing private source code or writing a custom MCP server for every service.
 
+## What EasyMCP Is
+
+EasyMCP is a control plane for MCP servers. It does not lock you into one input shape — it handles three:
+
+- **OpenAPI services** — point at an `openapi.json` and EasyMCP auto-wraps it into an MCP server. This is the example below.
+- **Existing stdio MCP servers** — `@modelcontextprotocol/server-filesystem`, `server-git`, `server-fetch`, or anything that speaks the MCP stdio transport. Register them once and they slot into the same registry, discovery index, and agent installer as your HTTP instances.
+- **Your own CLIs as MCP** — wrap a local CLI in the MCP stdio protocol and EasyMCP manages it like any other instance.
+
+Whatever the input shape, the downstream surface is the same: one registry, one discovery cache, one `easymcp find` index, one agent installer, one set of facets and profiles.
+
 ## Install in One Command
 
 ```bash
@@ -245,6 +255,50 @@ easymcp contract export auth-service --format json --output auth-service-tools.j
 ```
 
 Contract exports are designed for humans, support, and LLM agents. They include tool names, endpoints, descriptions, schemas, auth hints, tenant hints, and example arguments. They intentionally exclude private ranking internals and embeddings.
+
+## Facets — Smaller Tool Surfaces per Agent
+
+When an instance has hundreds of operations but a given agent only needs a handful, install a facet instead of the whole instance. A facet is a named subset of an instance's tools, addressed as `<instance>:<facet>` anywhere the CLI accepts `<instance>`.
+
+```bash
+easymcp facet create payment-service:refunds-only \
+  --description "Refund flow for support agents"
+easymcp facet add payment-service:refunds-only \
+  create_refund_refunds cancel_refund_refunds
+easymcp agent install codex payment-service:refunds-only
+```
+
+Codex now sees the slice you carved, not the full catalog.
+
+Capture a facet as a portable bundle, commit it to git, and replay it on another machine:
+
+```bash
+easymcp facet export payment-service:refunds-only --output refunds-only.yaml
+easymcp facet apply -f refunds-only.yaml --dry-run   # preview the diff
+easymcp facet apply -f refunds-only.yaml             # commit
+```
+
+`apply` is idempotent and validates everything before any write. Short guide: [`docs/facets-quickstart.md`](docs/facets-quickstart.md).
+
+## Stdio MCP Servers
+
+EasyMCP also manages **stdio MCP servers** — local binaries like `@modelcontextprotocol/server-filesystem`, `@modelcontextprotocol/server-git`, your own CLIs wrapped as MCP, anything that speaks the MCP stdio transport. They register, probe, search, and install through the same commands as HTTP servers:
+
+```bash
+easymcp instance add filesystem \
+  --kind local_process --transport stdio \
+  --command npx --arg -y \
+  --arg @modelcontextprotocol/server-filesystem \
+  --arg /tmp/easymcp-sandbox
+
+easymcp check filesystem               # one-shot initialize + tools/list probe
+easymcp discover refresh filesystem    # cache the tools for `find`
+easymcp agent install claude-code filesystem --scope project
+```
+
+Optionally drop an **OpenAPI hint sidecar** at `~/.easymcp/hints/<instance>.openapi.yaml` to enrich tool descriptions, add intent aliases, and improve search routing — without forking the upstream server.
+
+Full guide and worked examples: [`docs/stdio-mcp-servers.md`](docs/stdio-mcp-servers.md).
 
 ## Profiles for Multi-Tenant Work
 

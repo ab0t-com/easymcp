@@ -17,3 +17,4 @@ __pycache__/
 node_modules/
 dist/tmp/
 .mcp.jso*
+undefined/

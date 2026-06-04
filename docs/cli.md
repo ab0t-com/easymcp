@@ -341,6 +341,8 @@ bearer_token_env_var = "MCP_BEARER_TOKEN"
 
 ### Stdio server
 
+Register any binary that speaks the MCP stdio transport (newline-delimited JSON-RPC, see `research/12-mcp-stdio-transport-2026.md`):
+
 ```bash
 easymcp instance add filesystem \
   --kind local_process \
@@ -350,6 +352,66 @@ easymcp instance add filesystem \
   --arg @modelcontextprotocol/server-filesystem \
   --arg /tmp
 ```
+
+Probe the server (one-shot `initialize` + `tools/list`, no install required):
+
+```bash
+easymcp check filesystem
+```
+
+Refresh the discovery cache so `easymcp find` can search across stdio tools:
+
+```bash
+easymcp discover refresh filesystem
+easymcp discover ls filesystem
+easymcp find read --instance filesystem
+```
+
+Install into Claude Code or Codex (this is what actually runs the stdio server day to day — the consuming client owns the subprocess lifecycle):
+
+```bash
+easymcp agent install claude-code filesystem --scope project
+easymcp agent install codex filesystem
+```
+
+Note: `easymcp instance start <stdio-name>` deliberately refuses. Stdio servers are launched on demand by the consuming client; the manager registers, renders, probes, and caches. Use `easymcp check` or `easymcp discover refresh` to exercise the server from the manager.
+
+### Hint sidecar (OpenAPI)
+
+Stdio servers often ship terse tool descriptions. To enrich them without forking the upstream server, drop an OpenAPI fragment at `~/.easymcp/hints/<instance>.openapi.yaml`. Operations whose `operationId` matches a tool name from the server's live `tools/list` augment the cached record. Live `description` and `inputSchema` always win.
+
+```yaml
+openapi: 3.0.3
+info:
+  title: filesystem hints
+  version: 1.0
+paths:
+  /read_file:
+    post:
+      operationId: read_file
+      summary: Read a file from disk and return its contents as text
+      tags: [read-only, filesystem]
+      x-easymcp-aliases: [read, open, cat]
+      x-easymcp-examples:
+        - "read the README from /Users/me/Desktop"
+      x-easymcp-notes: "Binary files are base64'd in result.content[0].data"
+  /write_file:
+    post:
+      operationId: write_file
+      tags: [mutating, filesystem]
+      x-easymcp-aliases: [save, put, write]
+      x-easymcp-auth-hint: "no auth — caller-owned stdio server"
+```
+
+Augmentation surface:
+- `tags` (standard OpenAPI) — additive, deduped against live tags
+- `summary` / `description` — fallback when live description is empty
+- `x-easymcp-aliases` — additional search vocabulary
+- `x-easymcp-examples` — natural-language sample queries
+- `x-easymcp-notes` — operator-authored behaviour notes
+- `x-easymcp-auth-hint` — short human-readable auth context, joined into security hints
+
+JSON form `<instance>.openapi.json` is also accepted. YAML wins if both exist. Missing-tool hints log a warning and don't fail the refresh.
 
 ### Managed local Docker-backed HTTP process
 
@@ -791,7 +853,8 @@ easymcp --json schema
 ## Known Limits
 
 - HTTP MCP verification is implemented.
-- Full stdio protocol verification is not yet implemented.
+- Stdio MCP verification is implemented as a one-shot `initialize` + `tools/list` probe (`easymcp check <stdio>`, `easymcp discover refresh <stdio>`). Long-lived stdio servers are owned by the consuming agent client, not by the manager; `easymcp instance start <stdio>` deliberately refuses with a pointer to `agent install`.
+- `tools/call` over stdio is not yet implemented; the profile auth-probe path warns and skips for stdio instances.
 - Codex project-local MCP config is intentionally not the default target.
 - Local EasyMCP runtime management assumes a public EasyMCP Docker image, currently defaulting to `ab0tcom/easymcp:v0.1.0`.
 - `ab0tcom/easymcp:v0.1.0` is the first public pinned default validated from Docker Hub.
@@ -835,7 +898,7 @@ Current access patterns implemented:
 - Codex global installation
 
 Not yet fully implemented:
-- stdio protocol health verification
+- stdio `tools/call` from the manager (used by profile auth-probe; warns and skips for now)
 - native OAuth login orchestration in the manager itself
 - Codex repo-local config as a first-class supported target
 

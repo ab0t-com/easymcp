@@ -1,0 +1,92 @@
+# Optional OpenAPI hint sidecar for the `filesystem` stdio instance.
+#
+# Drop this file at:
+#   ~/.easymcp/hints/filesystem.openapi.yaml
+#
+# When `easymcp discover refresh filesystem` runs, EasyMCP merges these
+# augmentations into the cached tool records. Live `description` and
+# `inputSchema` from the server's `tools/list` always win — this file only
+# adds intent vocabulary, tags, and notes that the upstream server doesn't
+# ship.
+#
+# Why use it: stdio servers often have terse tool descriptions, which makes
+# `easymcp find` less useful. Adding aliases and tags here lets natural-
+# language search route the right intents to the right tools without forking
+# or rebuilding the upstream server.
+#
+# Schema: standard OpenAPI 3.0+, with these EasyMCP extensions per operation:
+#   tags                    — additive grouping; surfaces in `discover ls`
+#   summary / description   — fallback only when the live description is empty
+#   x-easymcp-aliases       — extra search vocabulary
+#   x-easymcp-examples      — natural-language sample queries that should route here
+#   x-easymcp-notes         — operator-authored behaviour notes
+#   x-easymcp-auth-hint     — short human-readable auth context
+#
+# An operation whose `operationId` doesn't match any tool in the server's
+# live `tools/list` is logged as a warning and skipped — never fatal.
+#
+# JSON form (`<instance>.openapi.json`) is also accepted. YAML wins if both
+# exist.
+
+openapi: 3.0.3
+info:
+  title: filesystem hints
+  version: 1.0
+
+paths:
+
+  /read_text_file:
+    post:
+      operationId: read_text_file
+      summary: Read a text file from disk
+      tags: [read-only, filesystem]
+      x-easymcp-aliases: [read, open, cat, slurp, fetch-file-contents]
+      x-easymcp-examples:
+        - "show me the contents of the README"
+        - "what is in /etc/hosts"
+      x-easymcp-notes: "Returns UTF-8 text. Use read_media_file for binary."
+
+  /read_media_file:
+    post:
+      operationId: read_media_file
+      tags: [read-only, filesystem, binary]
+      x-easymcp-aliases: [read-image, read-audio, read-binary]
+      x-easymcp-examples:
+        - "load this PNG so I can describe it"
+
+  /write_file:
+    post:
+      operationId: write_file
+      tags: [mutating, filesystem, danger]
+      x-easymcp-aliases: [save, persist, overwrite, create-file, blow-away-existing]
+      x-easymcp-examples:
+        - "save these notes to a file"
+      x-easymcp-auth-hint: "no auth — caller-owned stdio server"
+      x-easymcp-notes: "Overwrites without prompting. Use edit_file for partial changes."
+
+  /edit_file:
+    post:
+      operationId: edit_file
+      tags: [mutating, filesystem]
+      x-easymcp-aliases: [patch, modify, change-lines]
+      x-easymcp-examples:
+        - "change line 12 of config.yaml"
+      x-easymcp-notes: "Returns a unified diff of the changes."
+
+  /list_directory:
+    post:
+      operationId: list_directory
+      tags: [read-only, filesystem, navigation]
+      x-easymcp-aliases: [ls, dir, browse, list-files]
+      x-easymcp-examples:
+        - "what's in /tmp"
+        - "show me the project structure"
+
+  /search_files:
+    post:
+      operationId: search_files
+      tags: [read-only, filesystem, search]
+      x-easymcp-aliases: [find, locate, grep-by-name, where-is]
+      x-easymcp-examples:
+        - "find all .ts files under src"
+        - "where are the test files"
