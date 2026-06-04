@@ -1,6 +1,6 @@
 # Docker Hub Tags
 
-Generated at: `2026-05-29T13:15:44Z`
+Generated at: `2026-06-04T12:51:46Z`
 
 Repository: `ab0tcom/easymcp`
 
@@ -12,6 +12,7 @@ No `latest` tag is currently published.
 
 | Tag | Status | Last Updated | Size | Digest |
 | --- | --- | --- | ---: | --- |
+| `v0.2.2` | active | `2026-06-04T12:51:31.949109Z` | 69.97 MB | `sha256:3d05fbf97ecf...` |
 | `v0.1.1` | active | `2026-05-17T03:51:16.831833Z` | 70.51 MB | `sha256:05f0eb5f7506...` |
 | `v0.1.0` | active | `2026-05-16T23:11:24.800727Z` | 70.51 MB | `sha256:606bfcdcbc7e...` |
 

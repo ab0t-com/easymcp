@@ -1,9 +1,17 @@
 {
-  "generated_at": "2026-05-29T13:15:44Z",
+  "generated_at": "2026-06-04T12:51:46Z",
   "repository": "ab0tcom/easymcp",
   "source_api": "https://hub.docker.com/v2/repositories/ab0tcom/easymcp/tags?page_size=100",
-  "tag_count": 2,
+  "tag_count": 3,
   "tags": [
+    {
+      "digest": "sha256:3d05fbf97ecfc820c7459e4748d79071a59f979d2306e47dfbf10cacf33fad5e",
+      "full_size_bytes": 73365745,
+      "full_size_mb": 69.97,
+      "last_updated": "2026-06-04T12:51:31.949109Z",
+      "name": "v0.2.2",
+      "status": "active"
+    },
     {
       "digest": "sha256:05f0eb5f750693e1082756297fdb4decc2d34f9e0a958518be42426ced3d2f0f",
       "full_size_bytes": 73931396,

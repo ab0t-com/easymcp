@@ -59,11 +59,11 @@ These are product pages authored directly in the public repository and must not 
 
 ## Generated From
 
-Generated at: `2026-05-29T13:15:44Z`
+Generated at: `2026-06-04T12:51:46Z`
 
 Private source branch: `feature/auth-work`
 
-Private source commit: `7913bcf`
+Private source commit: `b143d8b`
 
 ## Safety Boundary
 

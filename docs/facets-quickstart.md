@@ -36,6 +36,14 @@ easymcp discover inspect create_refund_refunds --instance payment-service:refund
 easymcp profile bind acme-prod payment-service:refunds-only
 ```
 
+## Capture a facet as a file
+
+Once a facet is the way you want it, `easymcp facet export payment-service:refunds-only` prints a portable YAML bundle on stdout (or, with `--output refunds-only.yaml`, to a file) — commit it to git, share it with a teammate, or stash it for a fresh machine. Use `easymcp facet export <instance>` to capture every facet on one instance, or `easymcp facet export --all` to capture every facet across every registered instance. The full reference is in `docs/facets.md`.
+
+## Round-trip with `apply`
+
+The other half of the same workflow is `easymcp facet apply -f refunds-only.yaml` — read the bundle back, validate it all-or-nothing, and reconcile the on-disk facet set to match. Apply creates missing facets, unions tool lists into existing ones, and leaves unrelated facets alone; it is additive in this release. Run it with `--dry-run` first to preview the structured `{would_create, would_update, unchanged}` diff without touching disk, then re-run without the flag to commit. Apply is idempotent — running the same file twice against a converged machine is a no-op — so you can wire it into a CI job, an onboarding script, or a `git pull && easymcp facet apply -f facets/` loop without worrying about audit churn. The full reference is in `docs/facets.md`.
+
 ## Two ways to populate a facet
 
 Both compose. The effective tool list is the union, deduplicated.
