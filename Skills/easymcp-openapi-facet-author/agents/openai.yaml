@@ -1,0 +1,4 @@
+interface:
+  display_name: "EasyMCP OpenAPI Facet Author"
+  short_description: "Annotate an OpenAPI spec with x-facet so downstream MCP operators get intent-shaped tool slices automatically"
+  default_prompt: "Use $easymcp-openapi-facet-author to design facet boundaries for your OpenAPI spec, add x-facet annotations to the right operations, and verify the result end-to-end against a local EasyMCP install."

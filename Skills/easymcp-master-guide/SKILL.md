@@ -11,6 +11,7 @@ Classify the user’s task before going deep:
 
 1. **Connect API to agent** -> use `$easymcp-api-to-agent`.
 2. **Carve a small slice of tools out of a large MCP instance for token cost or tool-call accuracy** -> use `$easymcp-facets`.
+2a. **Annotate an OpenAPI spec with `x-facet` so downstream operators get the right slices automatically (you OWN the spec)** -> use `$easymcp-openapi-facet-author`.
 3. **Run Docker image directly** -> use `$easymcp-docker-consumer`.
 4. **Design profiles, tenants, customer separation** -> use `$easymcp-enterprise-profiles`.
 5. **Design production auth** -> use `$easymcp-auth-architect`.

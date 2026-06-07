@@ -19,13 +19,59 @@ Release evidence:
 
 ## Current Public State
 
-- Docker runtime published tags: `v0.1.1`, `v0.1.0`.
+- Docker runtime published tags: `v0.3.0`, `v0.2.2`, `v0.1.1`, `v0.1.0`.
 - Docker `latest` tag: not currently published.
-- CLI latest mirrored release: `v0.2.1`.
+- CLI latest mirrored release: `v0.3.0`.
 - CLI default runtime image: `ab0tcom/easymcp:v0.1.0`.
 - CLI default managed EasyMCP host port: first available port in `10000-12000`.
 
 ## EasyMCP CLI
+
+### v0.3.0
+
+Public message:
+
+- Facets carry operator metadata. Every facet can now record an owner, queryable tags, an agent-readable intent, a safety class (`read-only` / `mutating` / `destructive`), freeform annotations, and timestamps. New engineers inheriting a box can answer "who built this, what is it for" from `facet inspect` without paging anyone.
+- New reverse-lookup verbs: `easymcp facet who-uses <instance>:<facet>` lists every profile binding and agent install that references the facet address; `easymcp instance dependents <name>` aggregates across every facet on the instance as a one-command pre-deprecation check.
+- LLM agents see structured guidance. The runtime emits an `_meta.easymcp.io/facet` envelope on `/mcp/facets/<facet>` `tools/list` with intent + safety class + tags, so an agent in read-only mode can refuse a destructive facet at the envelope level instead of inspecting each tool.
+- Audit log carries an `actor` field on every state-changing verb. `audit tail --json | jq '.actor'` returns the meaningful operator identifier on every row.
+- New OpenAPI annotation channel for spec authors whose codegen libraries can't emit custom `x-*` extensions: declare facet membership via `x-easymcp-facet:<name>` entries inside the standards-compliant `tags` array. Composes by union with the existing `x-facet` operation extension.
+
+Customer benefit:
+
+- Handoffs work — facet ownership and intent are captured on the facet itself, not hidden in a wiki.
+- Pre-deprecation safety — drop an instance without orphaning every profile binding and agent install that pointed at it.
+- Agents that route by safety class behave correctly on read-only and destructive surfaces without per-tool annotations.
+- Multi-tenant operators can scope `facet ls --tag client:acme` to one customer's slice; security reviewers can scope by `--safety-class destructive` for an audit.
+- OpenAPI service teams whose codegen pipelines strip extensions can still declare facets through the standards-compliant tags array — the spec stays the single source of truth.
+
+Upgrade:
+
+```bash
+easymcp update --version v0.3.0 --yes
+```
+
+### v0.2.2
+
+Public message:
+
+- Declarative facet management arrives. Capture every facet on a machine as a portable YAML bundle (`easymcp facet export --all --output facets.yaml`), commit it to git, code-review it, and replay it across staging and prod with `easymcp facet apply -f facets.yaml`.
+- All-or-nothing validation on apply: every check runs before any write, so a broken bundle never half-applies. `--dry-run` previews the diff without touching disk; `--prune --yes` removes facets present on disk but absent from the bundle (with a refusal-with-list safety gate when `--yes` isn't passed).
+- `easymcp facet diff -f <file>` shows drift between a bundle and on-disk state without writes — useful for CI gates and pre-merge review.
+- Stdio MCP server support. `easymcp instance add <name> --kind local_process --transport stdio --command <bin>` registers local servers like `@modelcontextprotocol/server-filesystem` or your own CLI wrapped in the MCP stdio protocol, alongside HTTP-backed instances in the same registry.
+- Faceted endpoint routing fixed — `/mcp/facets/<facet>` now reliably serves the filtered tool set under all instance shapes.
+
+Customer benefit:
+
+- Facets become a real config artifact: git-tracked, code-reviewable, CI-applicable, reproducible across machines.
+- New operators onboard in one command instead of running a dozen `facet create + add` sequences manually.
+- One tool, two transports — local MCP servers slot into the same registry, search, and agent installer as HTTP-backed instances.
+
+Upgrade:
+
+```bash
+easymcp update --version v0.2.2 --yes
+```
 
 ### v0.2.1
 

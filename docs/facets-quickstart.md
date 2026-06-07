@@ -36,6 +36,10 @@ easymcp discover inspect create_refund_refunds --instance payment-service:refund
 easymcp profile bind acme-prod payment-service:refunds-only
 ```
 
+## Label your facets
+
+Once you have more than two or three facets per machine, set `--owner @you` and `--tag team:foo,env:bar` on `facet create` (or in the bundle YAML) so handoffs and reverse-lookup verbs work. The full schema is in `docs/facets.md`.
+
 ## Capture a facet as a file
 
 Once a facet is the way you want it, `easymcp facet export payment-service:refunds-only` prints a portable YAML bundle on stdout (or, with `--output refunds-only.yaml`, to a file) — commit it to git, share it with a teammate, or stash it for a fresh machine. Use `easymcp facet export <instance>` to capture every facet on one instance, or `easymcp facet export --all` to capture every facet across every registered instance. The full reference is in `docs/facets.md`.
@@ -81,7 +85,7 @@ paths:
 ## Recovery and safety
 
 - `easymcp facet add` validates every tool name against the discovery cache BEFORE writing. A typo errors loudly and changes nothing.
-- If the upstream spec stops declaring a tool you added manually, EasyMCP keeps your reference and marks it `stale` in `facet inspect`. Auto-removal is deliberately not done — temporary spec breakage upstream should not silently drop your operator-curated state. An audit entry (`facet.stale_tool`) records each drift so you can review the trail with `easymcp audit filter --action facet.stale_tool`.
+- If the upstream spec stops declaring a tool you added manually, EasyMCP keeps your reference and marks it `stale` in `facet inspect`. Auto-removal is deliberately not done — temporary spec breakage upstream should not silently drop your operator-curated state. The drift is recorded in the audit log so you can review the trail; the exact filter constant is documented in the agent skill reference.
 - Every state-changing facet operation appends a structured audit log entry. `easymcp audit tail` shows recent events.
 
 ## Where to go next

@@ -63,6 +63,281 @@ so a single `easymcp data export` carries them along with everything else.
 
 ---
 
+## Facet Metadata
+
+A facet is more than a name and a tool list. Each facet carries a small,
+optional metadata block so the next operator who walks up to your box can
+answer three questions without paging anyone:
+
+- Who built it, and who to ask when it breaks.
+- What it is *for*, beyond the tool names themselves.
+- Whether the tools inside it can change or destroy data.
+
+All fields below are optional. A facet that omits them keeps working
+exactly as it did before; metadata is purely additive.
+
+### The fields
+
+```yaml
+facets:
+  refunds-only:
+    description: Refund flow tools for support agents
+    owner: "@sre-platform"
+    tags:
+      - team:support
+      - env:prod
+      - compliance:pci
+    intent: |
+      Primary refund issuance and reversal surface.
+      Use create_refund_refunds first; cancel_refund_refunds only for
+      refunds less than 24 hours old.
+    safety_class: mutating
+    annotations:
+      runbook: https://wiki.example/refund-runbook
+      slack_channel: "#cs-refunds"
+    created_at: 2026-06-04T13:55:00Z
+    updated_at: 2026-06-04T14:02:00Z
+    tools:
+      - create_refund_refunds
+      - cancel_refund_refunds
+      - create_batch_refunds_refunds
+```
+
+| Field | Purpose |
+|---|---|
+| `owner` | Free string. Recommended `@handle` or `team@example.com` so it doubles as a routing token (Slack, email, on-call). Not enforced, never used as an access boundary. |
+| `tags` | Short, lowercase, queryable labels. Used by `easymcp facet ls --tag …` filters. Conventions: `team:`, `env:`, `client:`, `compliance:` namespaces (see below). |
+| `intent` | Structured agent-readable string explaining what this facet is *for* and which tool is the primary verb. Surfaced on `tools/list` `_meta` so LLM agents read it without parsing prose. |
+| `safety_class` | Closed enum: `read-only`, `mutating`, or `destructive`. Auto-computed from the discovery cache when omitted; operator override always wins. |
+| `annotations` | Freeform key/value map for URLs, runbooks, channel names, and anything else that doesn't belong in a queryable tag. |
+| `created_at` | Stamped once when the facet is created. RFC3339 UTC. |
+| `updated_at` | Restamped on every field-changing write. A no-op `easymcp facet apply` does *not* restamp — the field stays meaningful across CI loops. |
+
+You can set every field at create time:
+
+```bash
+easymcp facet create payment-service:refunds-only \
+  --description "Refund flow tools for support agents" \
+  --owner "@sre-platform" \
+  --tag team:support --tag env:prod --tag compliance:pci \
+  --intent "Primary refund issuance and reversal surface." \
+  --safety-class mutating \
+  --annotation runbook=https://wiki.example/refund-runbook \
+  --annotation slack_channel='#cs-refunds'
+```
+
+Every field round-trips through `easymcp facet export` and `easymcp facet
+apply`, so the YAML you check into git is the source of truth.
+
+### `safety_class` is a closed enum
+
+`safety_class` accepts exactly three values:
+
+- `read-only` — every tool in the facet only reads.
+- `mutating` — at least one tool changes state, none are destructive.
+- `destructive` — at least one tool deletes or otherwise destroys data.
+
+When you omit `--safety-class`, EasyMCP computes the default from the
+discovery cache: all-reads becomes `read-only`, any-destroys becomes
+`destructive`, anything else becomes `mutating`. The operator value, once
+set, is preserved across `easymcp discover refresh` — security reviewers
+can mark a facet `destructive` and trust it stays that way even after
+tools come and go.
+
+Agents in read-only modes can refuse the whole facet at once by reading
+`safety_class` from `_meta`, instead of inspecting each tool.
+
+### Tags: queryable, namespaced, short
+
+Tags are the queryable half of the metadata. They are short, lowercase,
+and follow `key:value` shape so filters compose without ambiguity.
+
+Recommended namespace keys:
+
+- `team:<slug>` — who owns or operates the facet (`team:sre`, `team:billing`).
+- `env:<slug>` — environment scope (`env:prod`, `env:staging`, `env:dev`).
+- `client:<slug>` — for multi-tenant consultants (`client:acme`, `client:globex`).
+- `compliance:<slug>` — compliance scope (`compliance:pci`, `compliance:sox`, `compliance:hipaa`).
+
+You are not limited to these — they are conventions, not enforcement.
+Tags get a tight regex (`[a-z0-9][a-z0-9:_-]*`, max 32 chars per tag,
+max 16 tags per facet) so they stay reliable as filter keys.
+
+```bash
+# All facets owned by the SRE team
+easymcp facet ls --tag team:sre --json
+
+# All facets for one client across every instance
+easymcp facet ls --tag client:acme --json
+
+# Security review surface: every destructive facet on prod
+easymcp facet ls --tag env:prod --safety-class destructive --json
+```
+
+Filters compose with AND semantics — listing `--tag team:sre --tag env:prod`
+returns facets that carry both.
+
+### Tags vs annotations: the Kubernetes split
+
+EasyMCP separates metadata into two stores for the same reason Kubernetes
+does:
+
+- **`tags`** are *queryable*. Bounded vocabulary, short values, used by
+  `--tag` / `--owner` / `--safety-class` filters and by tooling that
+  groups facets across instances. Treat them like selector labels.
+- **`annotations`** are *freeform*. Arbitrary `key=value`. Long values
+  (URLs, multi-line text) are fine. Use them for runbook links, Slack
+  channels, PagerDuty escalation policies, change-management ticket IDs
+  — anything you want the next operator to see but never need to
+  filter by.
+
+A tip from the K8s playbook: when in doubt, put it in annotations. If
+queries start naming the same annotation key over and over, it has
+graduated into a tag.
+
+### `_meta` flow on faceted endpoints (what an LLM agent sees)
+
+When an LLM agent calls `tools/list` against `/mcp/facets/<facet-name>`,
+the runtime emits an `_meta.easymcp.io/facet` envelope alongside the
+tool list:
+
+```json
+{
+  "tools": [
+    {"name": "create_refund_refunds", "description": "...", "inputSchema": {}}
+  ],
+  "_meta": {
+    "easymcp.io/facet": {
+      "name": "refunds-only",
+      "instance": "payment-service",
+      "description": "Refund flow tools for support agents",
+      "intent": "Primary refund issuance and reversal surface.",
+      "safety_class": "mutating",
+      "owner": "@sre-platform",
+      "tags": ["team:support", "env:prod", "compliance:pci"],
+      "annotations": {
+        "runbook": "https://wiki.example/refund-runbook",
+        "slack_channel": "#cs-refunds"
+      }
+    }
+  }
+}
+```
+
+The agent reads structured fields directly — no prose parsing, no
+guessing which tool name is the primary verb. Agents that don't
+understand `_meta` ignore it per the MCP spec, so the envelope is purely
+additive.
+
+The un-faceted `/mcp` endpoint does *not* emit this envelope — the
+metadata is per-facet by design. A facet with no operator-set metadata
+still emits an empty `easymcp.io/facet: {}` envelope so agents can
+detect "this is a faceted endpoint" by the presence of the key alone.
+
+`created_at` and `updated_at` are deliberately *not* surfaced in `_meta`
+— they are operator-facing audit fields, not agent-readable signals.
+
+### Worked examples by role
+
+The same metadata block answers a different question for each kind of
+operator. One example per role:
+
+**Platform engineer inheriting a box.** You walked in three weeks ago,
+there are twenty facets across eleven instances, and half have no
+description. With metadata in place:
+
+```bash
+$ easymcp facet ls --owner "@sre-platform" --json | jq '.[].address'
+"payment-service:refunds-only"
+"payment-service:status-readonly"
+"billing-service:invoice-issuance"
+```
+
+Now you know which facets are on your team's plate. `easymcp facet
+inspect payment-service:refunds-only` shows the owner, intent, and
+runbook annotation in one screen — no audit-log archaeology.
+
+**SRE deprecating a service.** You are decommissioning `legacy-billing`
+next quarter. Before you run `easymcp instance rm`, ask:
+
+```bash
+$ easymcp instance dependents legacy-billing
+Instance: legacy-billing
+Facets (2):
+  - refunds-only (3 dependents: profile acme-prod, codex, claude-code)
+  - status-readonly (1 dependent: claude-code)
+
+Total dependent profiles: 1
+Total dependent agent installs: 4
+```
+
+For a per-facet drill-down, `easymcp facet who-uses
+legacy-billing:refunds-only` lists every profile binding and every agent
+install pointing at that exact address. See *Who uses this facet* below
+for the verb-level reference.
+
+**Multi-tenant consultant.** You run EasyMCP for seven clients on one
+workstation. Tag every facet with `client:<slug>` on create:
+
+```bash
+$ easymcp facet create acme-payments:refunds-only \
+    --owner "jane@acme.example" \
+    --tag client:acme --tag team:support --tag env:prod \
+    --intent "Acme's refund surface; jane@acme.example is the on-call."
+```
+
+When an Acme engineer emails "can we add a tool to our refund facet?",
+the answer is one command away:
+
+```bash
+$ easymcp facet ls --tag client:acme --json
+```
+
+**AI-agent operator.** Your Codex or Claude session loads
+`payment-service:refunds-only` and needs to choose between
+`create_refund_refunds` and `create_batch_refunds_refunds`. With
+`intent` set on the facet, the agent reads from `_meta` on the
+`tools/list` response:
+
+```text
+"intent": "Primary refund issuance and reversal surface. Use
+ create_refund_refunds first; cancel_refund_refunds only for refunds
+ less than 24 hours old."
+"safety_class": "mutating"
+```
+
+The agent picks the primary verb directly, and an agent running in a
+read-only mode skips the whole facet by reading `safety_class`. No
+per-tool inference from operationId strings.
+
+**Security reviewer.** You need to audit every destructive surface on
+prod that an agent can reach:
+
+```bash
+$ easymcp facet ls --tag env:prod --safety-class destructive --json
+```
+
+For each hit, `easymcp facet inspect <address>` shows the owner and the
+runbook annotation so findings route to the right team without
+guesswork.
+
+### Who uses this facet
+
+Two verbs close the loop between a facet and the things that depend on
+it — useful before any rename, retirement, or scope change:
+
+- `easymcp facet who-uses <instance>:<facet>` — lists every profile
+  binding and every agent install pointing at the named facet.
+- `easymcp instance dependents <instance>` — aggregates `who-uses`
+  across every facet on the instance, for pre-flight before an
+  `easymcp instance rm`.
+
+Both verbs accept `--json` and produce deterministic output. Run them
+when the metadata answers *"what is this for?"* and you still need to
+answer *"what would break?"*.
+
+---
+
 ## Make one by hand
 
 The CLI has five verbs for managing facets. Each one accepts `--json` and
@@ -148,6 +423,133 @@ behalf — and flags the tool as stale on `easymcp facet inspect` so you
 notice before the agent next tries to call it. Drop the stale
 reference with `easymcp facet rm <instance>:<facet> <tool>` when you're
 ready to acknowledge the drift.
+
+---
+
+## When the spec can't carry `x-facet`: the tag-channel convention
+
+Not every OpenAPI pipeline can ship the `x-facet` vendor extension on
+operations. A team whose spec is emitted by a decorator-driven codegen
+library (FastAPI, NestJS Swagger, several `openapi-typescript-codegen`
+flows) often finds that unknown `x-*` keys on operations get dropped
+during serialization. Other teams run their generated spec through a
+strict OpenAPI validator in CI that rejects unknown vendor extensions
+on principle, or through a gateway that re-serializes specs on the way
+to a public URL and loses the extensions in the round-trip.
+
+For those teams, EasyMCP accepts a **second input channel** for facet
+declaration that lives inside the standards-compliant `tags` array on
+each operation. The convention is one tag whose value matches an exact
+namespace prefix:
+
+```
+x-easymcp-facet:<name>
+```
+
+Every OpenAPI codegen library emits the `tags` array. No extension key
+is involved, no validator rejects a string entry in a documented field,
+and no gateway round-trip drops it.
+
+### The shape
+
+The prefix is the literal string `x-easymcp-facet:` (lowercase, ending
+in a colon). The portion after the colon is the facet name, which
+follows the same rule as every other facet name in EasyMCP — lowercase
+letters, digits, and hyphens, starting with a letter or digit.
+
+```yaml
+paths:
+  /refunds/{org_id}/:
+    post:
+      operationId: create_refund_refunds
+      tags:
+        - billing                                   # ordinary tag — preserved
+        - x-easymcp-facet:refunds-only              # joins facet `refunds-only`
+        - x-easymcp-facet:customer-billing          # also joins `customer-billing`
+        - "swagger:internal"                        # ordinary tag — preserved
+```
+
+After discovery runs against this operation, it joins facets
+`refunds-only` and `customer-billing` — exactly the same outcome as
+`x-facet: [refunds-only, customer-billing]` would produce. The two
+ordinary tags (`billing` and `swagger:internal`) are preserved on the
+tool's `tags` field for Swagger-UI grouping and search. The two
+convention tags are consumed by the facet parser and do *not* leak into
+downstream `tool.tags` consumers, so the operator-facing surface stays
+clean.
+
+### When to use the tag channel
+
+Reach for the tag channel when, and only when, the `x-facet` operation
+extension isn't viable. The vendor extension stays the canonical and
+recommended path; the tag channel is the fallback that unblocks teams
+whose codegen pipeline gets in the way. Typical triggers:
+
+- Your codegen library silently drops unknown `x-*` keys on operations
+  during serialization.
+- Your CI runs a strict OpenAPI validator whose allow-list does not
+  include `x-facet`, and loosening the validator is not on the table.
+- Your spec passes through a gateway or normalizer that re-serializes
+  it and loses unknown extensions in the round-trip.
+- Your team already emits a `tags` array per operation for Swagger UI
+  grouping and adding one more string entry per operation is a
+  one-line annotation change in the existing codegen template.
+
+For every other case, prefer `x-facet`. It reads more clearly to a
+reviewer scanning the spec, doesn't share the `tags` array with
+unrelated Swagger-UI groupings, and matches the documented EasyMCP
+convention in every other reference.
+
+### Precedence and composition
+
+Both channels can coexist on the same operation. The composition rule
+is simple:
+
+- The two channels compose by **union**. A facet name that appears in
+  either channel produces membership in that facet.
+- The union is **deduplicated**. A name listed in both channels still
+  produces a single membership.
+- The resulting `Facets` slice is **sorted alphabetically** so the same
+  operation produces the same downstream shape regardless of the order
+  the names appeared in the spec.
+
+In every other respect, the channels behave identically. Both report
+`source: spec` on `easymcp facet inspect`, both populate the
+runtime-published faceted MCP endpoints, both round-trip cleanly
+through `easymcp facet export` / `easymcp facet apply`. Operators
+consuming the facet see exactly the same surface either way — the
+channel within the spec is an implementation detail of how the spec
+author chose to declare the membership.
+
+If a `x-easymcp-facet:` tag fails validation (empty name, uppercase
+letters or underscores in the name region, the reserved name `all`,
+extra colons, and so on), the tag is ignored and the rest of the spec
+continues to parse. A near-miss prefix (`x-easymcp-facet-refunds-only`
+with a hyphen instead of a colon, or `xeasymcpfacet:refunds-only` with
+no separators) is treated as an ordinary tag and passes through
+silently — the strict prefix match is what gates the parser.
+
+### Worked example: both channels on one operation
+
+```yaml
+paths:
+  /refunds/{org_id}/:
+    post:
+      operationId: create_refund_refunds
+      x-facet: [refunds-only]
+      tags:
+        - billing
+        - x-easymcp-facet:refunds-only
+        - x-easymcp-facet:customer-billing
+```
+
+The operation joins exactly two facets: `customer-billing` and
+`refunds-only`. The `refunds-only` name declared via both channels
+collapses into a single membership (dedup), the `customer-billing`
+name declared only via the tag channel joins via union, and the
+resulting `Facets` slice is sorted alphabetically. The `billing` tag
+survives unchanged on the tool record; both `x-easymcp-facet:*` entries
+are consumed and do not appear in `tool.tags`.
 
 ---
 
@@ -442,14 +844,14 @@ file in a code-review tool only need to ask "does this file pass apply?",
 not "did some prefix of this file get half-applied and now we are in a
 broken state?".
 
-When the validation passes, each individual state change emits its own
-audit log entry — one `facet.apply.create` per newly-created facet, one
-`facet.apply.update` per reconciled facet. The audit message names which
-bundle file introduced the change, so the trail keeps the record of which
-declarative artifact was responsible. Reading just the `facet.apply.*`
-events back out of `easymcp audit filter --action facet.apply.create`
-gives you the history of declarative apply runs without the imperative
-`facet.create` / `facet.add` events from hand work mixed in.
+When the validation passes, each individual state change appends its
+own audit log entry, with the bundle file name preserved in the entry's
+message field so the trail records which declarative artifact was
+responsible. The declarative apply entries are tagged with their own
+action constants (separate from the imperative ones), so an audit filter
+narrows cleanly to the history of declarative runs without the imperative
+hand-work events mixed in. The exact constants are documented in the
+agent skill reference at `Skills/easymcp-facets/references/verbs.md`.
 
 Apply is idempotent. Running the same bundle twice against an already-
 converged machine produces no audit entries on the second run — every
@@ -519,8 +921,8 @@ easymcp facet apply -f refunds-only.yaml
 
 The dry-run prints a `would_create` row for `payment-service:refunds-only`
 (assuming the second machine doesn't have it yet) and exits 0. The
-follow-up apply creates the facet, emits one `facet.apply.create` audit
-entry naming `refunds-only.yaml` as the source, and prints `created
+follow-up apply creates the facet, logs the create to the audit trail
+naming `refunds-only.yaml` as the source, and prints `created
 payment-service:refunds-only` on stdout.
 
 Run `easymcp facet inspect payment-service:refunds-only` on the second
@@ -730,9 +1132,10 @@ consent gate. There are three behavior modes:
 2. **`--prune --dry-run`** — previews safely. Prints the same
    would-prune list as a normal dry-run extension, exits 0, and emits
    no audit entries.
-3. **`--prune --yes`** — actually removes the listed facets, emits one
-   `facet.apply.prune` audit entry per removed facet, and prints the
-   pruned list alongside any created or updated entries.
+3. **`--prune --yes`** — actually removes the listed facets, logs each
+   removal to the audit trail with the bundle file recorded as the
+   source, and prints the pruned list alongside any created or updated
+   entries.
 
 The consent gate is the same shape as other destructive verbs in the
 CLI: you have to ask for the destructive behavior explicitly, the
@@ -791,10 +1194,10 @@ pruned    payment-service:disputes
 unchanged payment-service:refunds-only
 ```
 
-The audit log gets one `facet.apply.prune` record with target
-`payment-service:disputes` and a message reading `removed by
-declarative apply — not present in bundle facets/payment-service.yaml`,
-so the trail records exactly which file caused the deletion.
+The audit log records the prune with target `payment-service:disputes`
+and a message reading `removed by declarative apply — not present in
+bundle facets/payment-service.yaml`, so the trail names exactly which
+file caused the deletion.
 
 ### Safety note about `--yes`
 

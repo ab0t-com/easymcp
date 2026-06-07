@@ -4,7 +4,7 @@ Six verbs under `easymcp facet`. Plus `<instance>:<facet>` addressing on `find`,
 
 Every state-changing verb appends a structured audit log entry. Every verb supports `--json` with a stable snake_case envelope; empty arrays render as `[]`, never `null`.
 
-## `easymcp facet create <instance>:<facet> [--description "..."]`
+## `easymcp facet create <instance>:<facet> [--description "..."] [--owner <s>] [--tag <k:v>] [--intent <s>] [--safety-class <class>] [--annotation key=value]`
 
 Create an empty facet on an existing instance. Errors if:
 
@@ -13,9 +13,19 @@ Create an empty facet on an existing instance. Errors if:
 - the facet name is the reserved word `all`;
 - the facet already exists.
 
-JSON envelope: `{instance, facet, description}`.
+Metadata flags (all optional; full schema in `references/metadata.md`):
 
-Audit: `facet.create`, Target = facet name, Fields = `["facet"]`.
+- `--owner <string>` — operator-curated owner field. Max 128 chars; shell metacharacters (`$`, `` ` ``, `;`, `|`, `&`, `<`, `>`, newline) rejected. Recommend `@handle` or `email` so the value routes in Slack / Github / PagerDuty.
+- `--tag <key:value>` — repeatable AND comma-split inside one occurrence; `--tag team:platform,env:prod` and `--tag team:platform --tag env:prod` produce identical results. Each tag matches `[a-z0-9][a-z0-9:_-]*`, max 32 chars per tag, max 16 tags per facet.
+- `--intent <string>` — structured, agent-readable directive surfaced on `_meta.easymcp.io/facet.intent`. Max 4096 chars.
+- `--safety-class <class>` — closed enum: `read-only` | `mutating` | `destructive`. Omitting the flag triggers auto-compute from the discovery cache (see `references/metadata.md`); an explicit value always wins over auto-compute and is preserved across `discover refresh`.
+- `--annotation key=value` — repeatable. Splits on the FIRST `=` so URL / base64 values survive unmangled. Keys match `[a-z][a-z0-9.-]*`; values max 1024 chars; max 32 annotations per facet. Repeated keys in one invocation are rejected (no silent last-write-wins).
+
+`created_at` and `updated_at` are stamped to `time.Now().UTC().Format(time.RFC3339)` at create time regardless of which other flags were passed. The bulk metadata validator runs BEFORE any disk write, so a rejected invocation leaves no partial facet on disk and no audit entry.
+
+JSON envelope: `{instance, facet, description, created_at, updated_at}` plus `owner`, `tags`, `intent`, `safety_class`, `annotations` when the operator set them. Keys for unset metadata fields are OMITTED — key presence is the consumer's "operator set this?" test.
+
+Audit: `facet.create`, Target = facet name, Fields = `["facet"]` plus one entry per metadata field actually set (`"description"`, `"owner"`, `"tags"`, `"intent"`, `"safety_class"`, `"annotations"`) in fixed schema order (matches the contracts.Facet declaration order, not alphabetic).
 
 ## `easymcp facet add <instance>:<facet> <tool> [<tool> ...]`
 
@@ -36,13 +46,23 @@ Argument-shape dispatch:
 
 The cobra `Aliases: []string{"delete"}` is set on the verb so `easymcp facet delete <instance>:<facet>` is identical to `easymcp facet rm <instance>:<facet>` for the whole-facet form. Matches the `kubectl` / `gh` / `docker` `delete`/`rm` parity users expect.
 
-## `easymcp facet ls [<instance>]`
+## `easymcp facet ls [<instance>] [--tag <k:v>] [--owner <s>] [--safety-class <class>]`
 
 Read-only. Lists facets across all instances when called without an arg, or for the named instance when passed one.
 
+Filters (all optional, AND-compose — every filter must match for a row to be emitted):
+
+- `--tag <key:value>` — repeatable AND comma-split inside one occurrence (same shape contract as `facet create --tag`). A facet must carry EVERY listed tag to be included. `--tag team:platform --tag env:prod` returns only facets that carry both tags.
+- `--owner <string>` — exact-match on the `owner` field. No fuzzy matching, no case-folding — the audit-trail contract depends on the exact-string equality.
+- `--safety-class <class>` — exact-match on the closed enum `read-only` | `mutating` | `destructive`. An invalid value is rejected at verb entry with an error naming the field plus all three accepted values.
+
+A filter requested but matching no facets yields `[]` in JSON output (never `null`); the human output for the same case renders `No facets.`.
+
 Human output: tabular `INSTANCE / FACET / TOOL_COUNT / DESCRIPTION`. Empty state renders `No facets.`.
 
-JSON envelope: `[{instance, facet, tool_count, tools, description}]`. Ordered alphabetically by instance then by facet name.
+JSON envelope: `[{instance, facet, tool_count, tools, description}]` plus `owner`, `tags`, `intent`, `safety_class`, `annotations`, `created_at`, `updated_at` when set on the facet (unset fields omitted per the `omitempty` contract). Ordered alphabetically by instance then by facet name.
+
+`intent` is truncated for list density: the JSON envelope emits the first 120 runes (not bytes — multi-byte UTF-8 is not chopped mid-codepoint) followed by a single `…` (U+2026) when the stored value exceeds 120 runes. Equal-or-shorter intents round-trip verbatim. Use `easymcp facet inspect` for the full value.
 
 No audit entry.
 
@@ -55,6 +75,78 @@ JSON envelope: `{instance, facet, description, tools: [{name, description, schem
 `source` values: `manual` | `spec` | `both` | `unknown`. See `mechanisms.md` for the semantics.
 
 No audit entry.
+
+## `easymcp facet who-uses <instance>:<facet>`
+
+Read-only. Lists every consumer of the named facet across two sources:
+
+- **Profile bindings** — every profile in `~/.easymcp/profiles.json` whose `instances` list, `default_instance`, or facet-address pointer references this facet. The verb emits one row per matching signal so a single profile with multiple bindings to the same facet surfaces each binding separately.
+- **Agent installs** — every config the agent installer knows about (Codex at `~/.codex/config.toml`, Claude Code at the user-scoped `~/.claude.json` and project-scoped `.mcp.json`, etc.) whose server entry's URL contains the faceted suffix `/facets/<facet>`, OR whose `args` list contains the literal `<instance>:<facet>` token, OR whose entry has a non-empty `tools` allow-list (a non-empty `tools` key is itself a faceted-install marker — the un-faceted install path never writes it).
+
+Output is deterministic: profile rows sort by `(profile, binding_type)`; agent rows sort by `(agent, scope, config_path, project_dir)`.
+
+Empty case: BOTH list keys are present and non-nil (`[]`, never `null`); the human render emits `Nothing points at <addr>.` to stderr so the verb never returns silently.
+
+JSON envelope:
+
+```json
+{
+  "instance": "payment-service",
+  "facet": "refunds-only",
+  "profile_bindings": [
+    {"profile": "acme-prod", "binding_type": "default_instance"}
+  ],
+  "agent_installs": [
+    {"agent": "claude-code", "config_path": "/home/me/proj/.mcp.json", "scope": "project", "project_dir": "/home/me/proj"},
+    {"agent": "codex", "config_path": "/home/me/.codex/config.toml"}
+  ]
+}
+```
+
+`binding_type` is one of `instances`, `default_instance`, or `facet_address` — one row per distinct signal so the operator sees each independently. Agent rows carry `scope` and `project_dir` only when the install is project-scoped; user-scoped installs emit just `agent` + `config_path`.
+
+No audit entry. No state change.
+
+## `easymcp instance dependents <name>`
+
+Read-only. Aggregates `facet who-uses` across every facet on the named instance and rolls the result up into a per-facet array plus a top-level summary.
+
+Errors if the named instance is not registered on this config root (`instance dependents: instance "ghost-service" does not exist`) — fails rather than emitting an empty envelope a script might misread as "nothing depends on it."
+
+The per-facet rows share their wire shape with `facet who-uses --json` (`facet`, `profile_bindings`, `agent_installs`) so automation that already parses `who-uses` reads either output unchanged. Facet rows sort alphabetically by name (Go map iteration is randomized; the sort is load-bearing for determinism).
+
+Summary carries two unique-tuple counts so the same physical consumer appearing on multiple facets is counted once:
+
+- `profile_count` — unique profile names across every facet's `profile_bindings`.
+- `agent_install_count` — unique `(agent, scope, config_path, project_dir)` tuples across every facet's `agent_installs`.
+
+JSON envelope:
+
+```json
+{
+  "instance": "payment-service",
+  "facets": [
+    {
+      "facet": "refunds-only",
+      "profile_bindings": [
+        {"profile": "acme-prod", "binding_type": "default_instance"},
+        {"profile": "acme-prod", "binding_type": "instances"}
+      ],
+      "agent_installs": [
+        {"agent": "codex", "config_path": "/home/me/.codex/config.toml"}
+      ]
+    }
+  ],
+  "summary": {
+    "profile_count": 1,
+    "agent_install_count": 1
+  }
+}
+```
+
+An instance with zero facets emits `"facets": []` (non-nil) and a zero-valued summary; the human render carries `(no facets defined)` plus `Total dependent profiles: 0` / `Total dependent agent installs: 0` so a deprecation pre-flight never produces silent output.
+
+No audit entry. No state change.
 
 ## `easymcp facet export [<instance>[:<facet>]] [--all] [--format yaml|json] [--output <path>] [--with-source-attribution]`
 
