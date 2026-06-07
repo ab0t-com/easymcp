@@ -1,0 +1,4 @@
+7ab8fef94b08bd8606fe1044a9370838b3f819ef9338119c90e812fb1d714b93  easymcp_0.4.0_darwin_amd64.tar.gz
+9f347bd0d74af24ebd1a48f7da7bb3b9b89ca0087e753de4fbf813bec6e8d7d8  easymcp_0.4.0_darwin_arm64.tar.gz
+0397096e71a404e09d67f9e993511c51fb9009ce9a36dfc40c60ba3f6767e137  easymcp_0.4.0_linux_amd64.tar.gz
+dd3b90eb50fcbb77a9036f6200423482f6ccf6596e74d11f22643174979f9e89  easymcp_0.4.0_linux_arm64.tar.gz

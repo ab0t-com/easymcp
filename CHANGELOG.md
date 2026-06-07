@@ -21,11 +21,35 @@ Release evidence:
 
 - Docker runtime published tags: `v0.3.0`, `v0.2.2`, `v0.1.1`, `v0.1.0`.
 - Docker `latest` tag: not currently published.
-- CLI latest mirrored release: `v0.3.0`.
+- CLI latest mirrored release: `v0.4.0`.
 - CLI default runtime image: `ab0tcom/easymcp:v0.1.0`.
 - CLI default managed EasyMCP host port: first available port in `10000-12000`.
 
 ## EasyMCP CLI
+
+### v0.4.0
+
+Public message:
+
+- Every facet is now a single file on disk at `~/.easymcp/instances.d/<instance>/facets/<facet>.yaml`. `instances.yaml` carries only the instance shells. A four-instance / forty-facet operator's `instances.yaml` shrinks from ~4000 lines, a single-facet edit is a single-file `git diff`, and a shared facet is one `cp` away.
+- Auto-migration on first v0.4 read: existing v0.3.x installs migrate transparently with a one-shot `~/.easymcp/instances.yaml.pre-v0.4.bak` backup (mode 0600, byte-identical to the pre-migration file). A stderr line names how many facets migrated and where the backup landed. Re-running is a no-op.
+- Explicit migration verbs for production teams that want to control the timing: `easymcp data migrate --check` previews the migration without writing anything; `easymcp data migrate --apply` runs it. Both are idempotent.
+- Forward-compat: the registry reader rejects any unknown `schema_version` with a clear "upgrade easymcp" error so a future-version ConfigRoot can't silently lose data on an older binary.
+- Migration audit trail: pass `easymcp audit filter --action data.migrate.facet` to list every facet migrated, or `--action data.migrate.v1alpha1_to_v1alpha2` for the per-run summary. Both carry the v0.3.0 `actor` contract.
+- `easymcp data export` and `easymcp data import` now round-trip the per-facet tree byte-identical, so moving a registry between machines preserves every facet file verbatim.
+
+Customer benefit:
+
+- `git diff` and `git blame` on a single facet are scoped to a single file, not a 4000-line YAML.
+- `cp instances.d/<instance>/facets/<facet>.yaml` is the facet share. Shared facets can live in a team-owned git repo and operators sync from there.
+- Two operators editing different facets on the same instance no longer collide on `git merge`. Conflicts only happen when two people edit the same facet.
+- The upgrade is no-action for normal users; production operators have an explicit verb path and a documented downgrade procedure with the `.pre-v0.4.bak` recovery substrate.
+
+Upgrade:
+
+```bash
+easymcp update --version v0.4.0 --yes
+```
 
 ### v0.3.0
 

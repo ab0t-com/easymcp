@@ -63,6 +63,191 @@ so a single `easymcp data export` carries them along with everything else.
 
 ---
 
+## Storage layout
+
+Starting with v0.4.0, each facet lives in its own file on disk. The instance
+shell (name, kind, transport, URL, credentials) stays in `instances.yaml`;
+the facets that hang off that instance move into a sibling tree under
+`instances.d/`. The Go in-memory shape that downstream callers see is
+unchanged — every verb still reads facets through the same `Instance.Facets`
+map, populated at load time by merging the per-facet files back in. Only
+the on-disk layout is different.
+
+### Where facets live on disk
+
+```
+~/.easymcp/
+├── instances.yaml                                  # schema_version: v1alpha2; instance shells, no nested facets
+├── instances.d/
+│   ├── payment-service/
+│   │   └── facets/
+│   │       ├── refunds-only.yaml                   # one file per facet
+│   │       └── disputes-readonly.yaml
+│   └── auth-service/
+│       └── facets/
+│           ├── jwks-rotation.yaml
+│           └── api-key-admin.yaml
+└── instances.yaml.pre-v0.4.bak                     # one-shot backup, written during migration; mode 0600
+```
+
+Each per-facet file lives at
+`~/.easymcp/instances.d/<instance>/facets/<facet>.yaml`. Files are mode `0600`
+(operator-only-readable); the leaf `facets/` directory is mode `0700`. Writes
+are atomic — the CLI writes to `<facet>.yaml.tmp` and renames into place — so
+a crash mid-write never leaves a torn file.
+
+### The per-facet file shape
+
+Each per-facet file is self-describing. It carries its own `schema_version`
+plus the `instance` and `facet` keys, so a file extracted from `instances.d/`
+and shared elsewhere still knows where it belongs.
+
+```yaml
+schema_version: v1alpha2
+instance: auth-service
+facet: jwks-rotation
+description: JWT signing key lifecycle for the on-call SRE.
+tools:
+  - activate_jwks_key_admin_jwks_activate
+  - cleanup_old_keys_admin_jwks_cleanup_post
+tool_sources:
+  activate_jwks_key_admin_jwks_activate: manual
+  cleanup_old_keys_admin_jwks_cleanup_post: spec
+owner: "@sre-platform"
+tags:
+  - env:prod
+  - rotation
+  - team:platform
+intent: |
+  Primary JWKS rotation surface for SRE on-call.
+  Use activate_jwks_key first; cleanup only after the 24h soak window.
+safety_class: destructive
+annotations:
+  runbook: https://wiki.example/jwks-runbook
+  slack_channel: "#sre-platform"
+created_at: 2026-06-07T12:55:00Z
+updated_at: 2026-06-07T13:02:00Z
+```
+
+The v0.3.0 metadata fields — `owner`, `tags`, `intent`, `safety_class`,
+`annotations`, `created_at`, `updated_at`, `tool_sources` — are preserved
+field-for-field. v0.4.0 moves where they live, not what they are.
+
+This shape gives you three properties the old nested layout did not:
+
+- **Per-facet `git diff`.** Editing one facet's `intent` line produces a
+  five-line diff in a focused file, not a fifty-line diff buried in a
+  4000-line `instances.yaml`.
+- **`cp`-shareable facets.** `cp ~/.easymcp/instances.d/payment-service/facets/refunds-only.yaml /shared-team-facets/`
+  is the share. A teammate `cp`s it into their own `instances.d/<instance>/facets/`
+  and the next `facet ls` picks it up. No `facet export` round-trip required.
+- **Disjoint merge surface.** Two operators editing different facets on the
+  same instance no longer collide on `git merge instances.yaml` — their
+  changes land in different files.
+
+### Migration from v0.3 (v1alpha1) to v0.4 (v1alpha2)
+
+Upgrading to v0.4.0 against a v0.3.x ConfigRoot triggers a one-shot
+migration on the first read. Existing facets are preserved field-for-field;
+nothing is dropped or rewritten besides the file layout itself.
+
+What happens on first v0.4 load:
+
+1. The store sees `instances.yaml` carries `schema_version: v1alpha1`.
+2. It writes `~/.easymcp/instances.yaml.pre-v0.4.bak` at mode `0600`, with
+   byte-identical contents to the pre-migration `instances.yaml`. This is
+   the recovery substrate — if anything goes wrong, this is what you
+   restore from.
+3. Every nested facet is written to its new per-facet file under
+   `instances.d/<instance>/facets/<facet>.yaml`. Per-facet writes are
+   atomic.
+4. `instances.yaml` is re-written with `schema_version: v1alpha2` and the
+   `facets:` field stripped from each instance.
+5. A one-line message lands on stderr:
+   `migrated N facets to per-facet files; backup at ~/.easymcp/instances.yaml.pre-v0.4.bak`.
+
+The migration is idempotent. Re-running it against an already-v1alpha2
+ConfigRoot is a no-op — zero file writes, zero stderr noise. The backup
+file is written write-once: if it already exists from a previous migration,
+it is preserved unchanged, and a fresh post-migration retry will not
+clobber the authoritative pre-migration snapshot.
+
+If you prefer to control the timing yourself — common in production
+environments where surprise file-layout changes during a routine `facet ls`
+would be alarming — two explicit verbs cover the same ground:
+
+```bash
+# Preview without writing anything. Shows how many facets would migrate
+# and where the backup would land.
+easymcp data migrate --check
+
+# Run the migration explicitly. Identical effect to the auto-on-read
+# path; idempotent on an already-migrated ConfigRoot.
+easymcp data migrate --apply
+```
+
+`--check` is read-only and emits no audit entries. `--apply` writes the
+backup, the per-facet files, and the rewritten `instances.yaml`, and
+appends one audit entry per migrated facet plus one summary entry to the
+audit log so the migration is replayable from the operator's audit trail.
+
+### Forward-compat: unknown schema versions
+
+A future v0.5 CLI may bump `schema_version` again. To prevent a newer
+ConfigRoot from being misread by an older CLI as if it were still
+v1alpha2, the store reader strictly validates `schema_version`: anything
+it does not recognize aborts the load with
+
+```
+instances.yaml schema_version "<value>" is not supported by this CLI version; upgrade easymcp
+```
+
+If you see this message, update the CLI to a version that knows about the
+newer schema. Same precedent as the FacetBundle apiVersion check from
+v0.2.2.
+
+### Downgrade from v0.4 to v0.3
+
+If you upgrade to v0.4.0, run for a while, then decide to downgrade
+back to v0.3.x, follow this procedure. The older binary does not know
+about `instances.d/` and would silently lose any facets that live there —
+the backup file is what makes the downgrade safe.
+
+1. **Stop any running EasyMCP processes** (`easymcp serve`, agent loops,
+   anything that holds an open handle on the ConfigRoot).
+2. **Restore the pre-migration `instances.yaml`** from the backup:
+
+   ```bash
+   cp ~/.easymcp/instances.yaml.pre-v0.4.bak ~/.easymcp/instances.yaml
+   ```
+
+3. **Optionally remove the v0.4 per-facet tree** if you want a clean
+   filesystem (the v0.3.x binary will ignore it either way):
+
+   ```bash
+   rm -rf ~/.easymcp/instances.d/
+   ```
+
+4. **Downgrade the binary** to the v0.3.x version you want. The
+   `easymcp update --version <version> --yes` flow works for this.
+5. **Verify the restore** with `easymcp facet ls --all`. You should see
+   the same facets you had before the v0.4 upgrade.
+
+The trade-off is visible: any facet changes you made *after* the v0.4
+upgrade are not in the backup. Those changes live in the per-facet files
+under `instances.d/`, and a v0.3.x binary will not read them. Before
+downgrading, run `easymcp facet export --all --output post-upgrade-facets.yaml`
+to capture the current state; after the downgrade, replay it with
+`easymcp facet apply -f post-upgrade-facets.yaml` to roll the
+post-upgrade changes forward into the restored v1alpha1 layout.
+
+The backup file is yours to manage. It stays on disk until you delete it;
+the CLI never auto-cleans it. Once you are confident in the new layout
+and have no plans to downgrade, `rm ~/.easymcp/instances.yaml.pre-v0.4.bak`
+is safe.
+
+---
+
 ## Facet Metadata
 
 A facet is more than a name and a tool list. Each facet carries a small,

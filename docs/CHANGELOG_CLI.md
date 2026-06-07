@@ -10,6 +10,52 @@ Release evidence:
 - Release archives: [`../releases/downloads/`](../releases/downloads/)
 - Checksums: [`../releases/downloads/checksums.txt`](../releases/downloads/checksums.txt)
 
+## v0.4.0
+
+### Public Summary
+
+`v0.4.0` makes every facet a single file on disk. Facets move out of the monolithic `instances.yaml` into per-facet files at `~/.easymcp/instances.d/<instance>/facets/<facet>.yaml`, one file per facet. A four-instance / forty-facet operator's `instances.yaml` shrinks from ~4000 lines to the instance shells alone; a single-facet edit is a single-file `git diff`; a shared facet is a `cp` away. Auto-migration on first v0.4 read takes care of existing installs with a one-shot backup, and explicit `data migrate --check` / `--apply` verbs give production operators control over timing. The v0.3.0 facet metadata schema (owner, tags, intent, safety class, annotations, timestamps) is preserved field-for-field — only the file layout changes.
+
+### What Changed
+
+- New on-disk shape (`schema_version: v1alpha2`): every facet lives at `~/.easymcp/instances.d/<instance>/facets/<facet>.yaml`. `instances.yaml` carries instance shells only — no nested `facets:` map. Per-facet files are mode 0600, parent directories mode 0700, all writes go through the existing `tmp + rename` atomic pattern.
+- Per-facet files are self-describing: each carries `schema_version`, `instance`, `facet`, and every v0.3.0 metadata field (description, tools, tool_sources, owner, tags, intent, safety_class, annotations, created_at, updated_at). A file extracted from `instances.d/` and shared elsewhere knows where it belongs.
+- Auto-migration on first v0.4 read of a v0.3.x (`v1alpha1`) ConfigRoot: detects the old shape, writes `~/.easymcp/instances.yaml.pre-v0.4.bak` (mode 0600, byte-identical to the pre-migration file), writes the per-facet files, then re-writes `instances.yaml` at `v1alpha2` with no `facets:` field. Prints one stderr line: `migrated N facets to per-facet files; backup at ~/.easymcp/instances.yaml.pre-v0.4.bak`. Idempotent — re-running on an already-migrated ConfigRoot is a no-op.
+- New verb `easymcp data migrate --check` previews the migration without writing anything. Names how many facets would migrate, how many instances are affected, and where the backup would land. JSON envelope for scripting.
+- New verb `easymcp data migrate --apply` runs the migration explicitly for ops teams that want to control the timing. Idempotent: re-running on an already-migrated ConfigRoot reports `would_be_no_op: true` and exits 0.
+- Forward-compat: the store reader now rejects any `instances.yaml.schema_version` it doesn't recognize with `instances.yaml schema_version "<value>" is not supported by this CLI version; upgrade easymcp`. Same shape as the FacetBundle apiVersion check from v0.2.2.
+- New audit action constants surface migration events for the operator audit-filter: pass `easymcp audit filter --action data.migrate.facet` to list every facet migrated, or `--action data.migrate.v1alpha1_to_v1alpha2` for the per-run summary entry. Both carry the v0.3.0 `actor` contract.
+- `easymcp data export` now bundles `instances.d/` into the export tarball; `easymcp data import` restores it verbatim. The move-between-machines workflow round-trips per-facet files byte-identical.
+- Verb surface is unchanged from v0.3.0: `easymcp facet create / add / rm / delete / apply / export / inspect / ls / who-uses` and `easymcp instance dependents` behave identically from the operator's perspective. Downstream Go callers see the same in-memory `Instance.Facets` shape — only the on-disk layout changed.
+
+### User Value
+
+- Per-facet `git diff` — editing one facet's intent is a 5-line diff in one file, not a 60-line diff in a 4000-line file. `git blame` on a facet is `git blame instances.d/<instance>/facets/<facet>.yaml`.
+- Per-facet `cp` sharing — `cp ~/.easymcp/instances.d/payment-service/facets/refunds-only.yaml /shared-team-drive/` is the share. A teammate `cp`s it into their `instances.d/` and the facet is theirs. No `facet export` workaround required.
+- Disjoint merge surface — two operators editing different facets on the same instance no longer collide on `git merge`. Conflicts only happen when two people edit the SAME facet.
+- Just-upgrade-and-it-works — auto-migration runs once on first v0.4 read with a one-shot backup; no operator-side action required for normal users. Production teams that want explicit control use `data migrate --check` then `--apply`.
+- Predictable downgrade story — `instances.yaml.pre-v0.4.bak` is the recovery substrate. If a v0.4 install needs to roll back to v0.3, the documented procedure restores the backup and downgrades the binary.
+
+### Downgrade Procedure
+
+If you upgrade to v0.4.0 and need to roll back to v0.3.x:
+
+1. Capture any facet changes made after the upgrade with `easymcp facet export --all --output post-upgrade-facets.yaml` so they can be replayed after the downgrade.
+2. Stop any running EasyMCP processes.
+3. Restore the pre-migration registry: `cp ~/.easymcp/instances.yaml.pre-v0.4.bak ~/.easymcp/instances.yaml`.
+4. Optionally remove the per-facet tree: `rm -rf ~/.easymcp/instances.d/`. The v0.3.x binary does not read it.
+5. Downgrade the binary: `easymcp update --version v0.3.0 --yes`.
+6. Verify with `easymcp facet ls`.
+7. Replay any post-upgrade changes with `easymcp facet apply -f post-upgrade-facets.yaml`.
+
+The `.pre-v0.4.bak` file stays on disk until you delete it.
+
+### Upgrade
+
+```bash
+easymcp update --version v0.4.0 --yes
+```
+
 ## v0.3.0
 
 ### Public Summary
