@@ -10,6 +10,26 @@ Release evidence:
 - Release archives: [`../releases/downloads/`](../releases/downloads/)
 - Checksums: [`../releases/downloads/checksums.txt`](../releases/downloads/checksums.txt)
 
+## v0.5.2
+
+### Public Summary
+
+`v0.5.2` is a focused fix for instances created from an OpenAPI 3 service that declares a relative server address (like `/api/v3`) or omits the server address entirely — common with FastAPI and similar frameworks. `easymcp create` now resolves the correct upstream URL automatically by anchoring to the spec's own address. Previously such tool calls could fail to reach the API and needed a manual `--api-base-url` override. This complements the v0.5.1 fix for legacy specs that carry a base path. Nothing else changes from v0.5.1.
+
+### What Changed
+
+- Fix: `easymcp create` now resolves the correct upstream URL for an OpenAPI 3 service that declares a relative server address (like `/api/v3`) or omits it entirely (common with FastAPI). The resolved address is anchored to the spec's own location automatically, so tool calls reach the right endpoint on the first try — no manual `--api-base-url` override needed.
+
+### User Value
+
+- Wrap a FastAPI-style service that publishes a relative or no server address in one command and get a working server on the first call, instead of tool calls that fail to reach the API followed by a manual base-URL fix.
+
+### Upgrade
+
+```bash
+easymcp update --version v0.5.2 --yes
+```
+
 ## v0.5.1
 
 ### Public Summary

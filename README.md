@@ -212,19 +212,19 @@ EasyMCP runs your servers two ways from the exact same config, so you never rewr
 **Static binary (default).** New servers run on a single self-contained executable — no Docker daemon, no docker-in-docker. It reads the same config as the Docker image and speaks the same MCP wire protocol, so an agent cannot tell the difference. Drop it into a worker container, a CI runner, a Kubernetes pod, or any host without Docker. A tiny distroless image is published too, for `COPY --from` into your own build:
 
 ```bash
-docker pull ab0tcom/easymcp-runtime:v0.5.1
+docker pull ab0tcom/easymcp-runtime:v0.5.2
 ```
 
 **Docker image (fully supported).** Prefer the container? Add `--runtime docker` and EasyMCP registers a Docker-backed instance instead. The image is config-driven — point it at an OpenAPI spec and describe auth, transport, and behavior:
 
 ```bash
-docker pull ab0tcom/easymcp:v0.5.1
+docker pull ab0tcom/easymcp:v0.5.2
 
 docker run --rm \
   -p 10000:10000 \
   -e EASYMCP_HEALTH_PORT=10000 \
   -v "$PWD/examples/server/petstore.yaml:/app/config.yaml:ro" \
-  ab0tcom/easymcp:v0.5.1 \
+  ab0tcom/easymcp:v0.5.2 \
   /app/config.yaml
 ```
 

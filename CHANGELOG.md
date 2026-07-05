@@ -27,6 +27,22 @@ Release evidence:
 
 ## EasyMCP CLI
 
+### v0.5.2
+
+Public message:
+
+- Fix: an instance created from an OpenAPI 3 service that declares a relative server address (like `/api/v3`) or omits the server address entirely — common with FastAPI and similar frameworks — now resolves the correct upstream URL automatically. Previously such tool calls could fail to reach the API; `easymcp create` now anchors to the spec's own address out of the box, no manual `--api-base-url` needed. This complements the v0.5.1 fix for legacy specs that carry a base path.
+
+Customer benefit:
+
+- Wrap a FastAPI-style service that publishes a relative or no server address in one command and get a working server on the first call — no manual base-URL override.
+
+Upgrade:
+
+```bash
+easymcp update --version v0.5.2 --yes
+```
+
 ### v0.5.1
 
 Public message:
