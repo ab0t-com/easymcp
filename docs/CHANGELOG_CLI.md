@@ -10,6 +10,26 @@ Release evidence:
 - Release archives: [`../releases/downloads/`](../releases/downloads/)
 - Checksums: [`../releases/downloads/checksums.txt`](../releases/downloads/checksums.txt)
 
+## v0.5.1
+
+### Public Summary
+
+`v0.5.1` is a focused fix for instances created from Swagger 2.0 and other legacy specs. When a spec carries a base path (like `/v2`), `easymcp create` now resolves the correct upstream URL automatically. Previously the base path could be dropped, so every tool call reached the wrong address and came back "not found" — you had to set `--api-base-url` by hand to recover. Nothing else changes from v0.5.0.
+
+### What Changed
+
+- Fix: `easymcp create` now resolves the correct upstream URL for a Swagger 2.0 or other legacy spec that carries a base path (like `/v2`). The base path is folded into the resolved address automatically, so tool calls reach the right endpoint on the first try — no manual `--api-base-url` override needed.
+
+### User Value
+
+- Wrap a legacy spec that lives under a base path in one command and get a working server on the first call, instead of a "not found" on every tool followed by a manual base-URL fix.
+
+### Upgrade
+
+```bash
+easymcp update --version v0.5.1 --yes
+```
+
 ## v0.5.0
 
 ### Public Summary

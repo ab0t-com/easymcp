@@ -27,6 +27,22 @@ Release evidence:
 
 ## EasyMCP CLI
 
+### v0.5.1
+
+Public message:
+
+- Fix: an instance created from a Swagger 2.0 or other legacy spec that carries a base path (like `/v2`) now resolves the correct upstream URL automatically. Previously the base path could be dropped, so every tool call reached the wrong address and came back "not found" — you had to set `--api-base-url` by hand to recover. `easymcp create` now handles these specs out of the box, no manual override needed.
+
+Customer benefit:
+
+- Wrap a legacy spec that lives under a base path in one command and get a working server on the first call — no more chasing a "not found" on every tool.
+
+Upgrade:
+
+```bash
+easymcp update --version v0.5.1 --yes
+```
+
 ### v0.5.0
 
 Public message:
