@@ -8,6 +8,8 @@ set -euo pipefail
 # Environment variables:
 #   EASYMCP_REPO=ab0t-com/easymcp
 #   EASYMCP_BINARY=easymcp
+#   EASYMCP_RUNTIME_BINARY=easymcp-runtime
+#   EASYMCP_INCLUDE_RUNTIME=1
 #   EASYMCP_INSTALL_DIR=$HOME/.local/bin
 #   EASYMCP_VERSION=latest|vX.Y.Z
 #   EASYMCP_CHECKSUMS=1
@@ -18,13 +20,20 @@ set -euo pipefail
 #   EASYMCP_GITHUB_API=https://api.github.com
 #
 # Notes:
-# - This script downloads exactly one release artifact and installs one binary.
+# - By default this installs the `easymcp` CLI and, when a matching release
+#   asset exists, the companion `easymcp-runtime` static binary side by side
+#   (the Go runtime form — same config, no Docker daemon required). The
+#   runtime is best-effort: if a release predates it or the asset is absent,
+#   the CLI still installs cleanly. Set EASYMCP_INCLUDE_RUNTIME=0 to skip it,
+#   or EASYMCP_BINARY=easymcp-runtime to install only the runtime binary.
 # - It prefers GitHub Releases, then falls back to repo-mirrored release files.
 # - It verifies checksums when a matching checksums file is available.
 # - It does not run sudo automatically. If INSTALL_DIR is not writable, it exits.
 
 REPO="${EASYMCP_REPO:-ab0t-com/easymcp}"
 BINARY="${EASYMCP_BINARY:-easymcp}"
+RUNTIME_BINARY="${EASYMCP_RUNTIME_BINARY:-easymcp-runtime}"
+INCLUDE_RUNTIME="${EASYMCP_INCLUDE_RUNTIME:-1}"
 INSTALL_DIR="${EASYMCP_INSTALL_DIR:-$HOME/.local/bin}"
 VERSION="${EASYMCP_VERSION:-latest}"
 CHECKSUMS="${EASYMCP_CHECKSUMS:-1}"
@@ -138,16 +147,27 @@ verify_checksum() {
   echo "Checksum verified for ${basename}" >&2
 }
 
-main() {
-  need_cmd mktemp
-  need_cmd tar
+# install_one_binary downloads, verifies, and installs a single binary's
+# release tarball into INSTALL_DIR. The tarball naming and URL layout are
+# identical for every binary (easymcp, easymcp-runtime), so both share this
+# function.
+#
+# Args:
+#   $1 binary   — binary name (== tarball prefix and extracted file name).
+#   $2 os
+#   $3 arch
+#   $4 version
+#   $5 tmpdir   — a scratch dir the caller owns and cleans up.
+#   $6 required — "1" to fail on a missing asset, "0" for best-effort (warn
+#                 and skip). The companion runtime is best-effort so a
+#                 release that predates it still installs the CLI cleanly.
+install_one_binary() {
+  local binary="$1" os="$2" arch="$3" version="$4" tmpdir="$5" required="$6"
+  local asset_name asset_url asset_mirror_url asset_root_mirror_url
+  local checksums_url checksums_mirror_url checksums_root_mirror_url
+  local archive checksums binary_path fetched_asset_url fetched_checksums_url
 
-  local os arch version asset_name asset_url asset_mirror_url asset_root_mirror_url checksums_url checksums_mirror_url checksums_root_mirror_url tmpdir archive checksums binary_path fetched_asset_url fetched_checksums_url
-  os="$(detect_os)"
-  arch="$(detect_arch)"
-  version="$(resolve_version)"
-
-  asset_name="${BINARY}_${version#v}_${os}_${arch}.tar.gz"
+  asset_name="${binary}_${version#v}_${os}_${arch}.tar.gz"
   asset_url="${RELEASE_BASE}/${version}/${asset_name}"
   asset_mirror_url="${MIRROR_BASE}/${version}/${asset_name}"
   asset_root_mirror_url="${MIRROR_BASE}/${asset_name}"
@@ -155,29 +175,18 @@ main() {
   checksums_mirror_url="${MIRROR_BASE}/${version}/checksums.txt"
   checksums_root_mirror_url="${MIRROR_BASE}/checksums.txt"
 
-  if [ "$DRY_RUN" = "1" ]; then
-    echo "Dry run OK" >&2
-    echo "  repo:         ${REPO}" >&2
-    echo "  version:      ${version}" >&2
-    echo "  asset:        ${asset_name}" >&2
-    echo "  asset_url:    ${asset_url}" >&2
-    echo "  fallback_url: ${asset_mirror_url}" >&2
-    echo "  fallback_root:${asset_root_mirror_url}" >&2
-    echo "  checksums:    ${CHECKSUMS}" >&2
-    echo "  checksums_url:${checksums_url}" >&2
-    echo "  fallback_sum: ${checksums_mirror_url}" >&2
-    echo "  fallback_root:${checksums_root_mirror_url}" >&2
-    echo "  install_dir:  ${INSTALL_DIR}" >&2
-    exit 0
-  fi
-
-  tmpdir="$(mktemp -d)"
-  trap 'rm -rf "${tmpdir:-}"' EXIT
   archive="${tmpdir}/${asset_name}"
-  checksums="${tmpdir}/checksums.txt"
+  checksums="${tmpdir}/${binary}.checksums.txt"
 
-  echo "Installing ${BINARY} ${version} from ${REPO}" >&2
-  fetched_asset_url="$(fetch_first "$archive" "$asset_url" "$asset_mirror_url" "$asset_root_mirror_url")"
+  echo "Installing ${binary} ${version} from ${REPO}" >&2
+  if [ "$required" = "1" ]; then
+    fetched_asset_url="$(fetch_first "$archive" "$asset_url" "$asset_mirror_url" "$asset_root_mirror_url")"
+  else
+    fetched_asset_url="$(fetch_first "$archive" "$asset_url" "$asset_mirror_url" "$asset_root_mirror_url" 2>/dev/null)" || {
+      echo "Skipping ${binary}: no release asset found for ${version} (this release may not ship it)." >&2
+      return 0
+    }
+  fi
   echo "Downloaded ${asset_name} from ${fetched_asset_url}" >&2
 
   if [ "$CHECKSUMS" = "1" ]; then
@@ -187,22 +196,65 @@ main() {
   fi
 
   tar -xzf "$archive" -C "$tmpdir"
-  binary_path="${tmpdir}/${BINARY}"
-  [ -f "$binary_path" ] || fail "release archive did not contain ${BINARY}"
+  binary_path="${tmpdir}/${binary}"
+  [ -f "$binary_path" ] || fail "release archive did not contain ${binary}"
 
   mkdir -p "$INSTALL_DIR"
   [ -w "$INSTALL_DIR" ] || fail "install dir is not writable: ${INSTALL_DIR}"
 
-  install -m 0755 "$binary_path" "${INSTALL_DIR}/${BINARY}"
-  if [ "${BINARY}" = "easymcp" ]; then
-    ln -sfn "${INSTALL_DIR}/${BINARY}" "${INSTALL_DIR}/mcpctl"
+  install -m 0755 "$binary_path" "${INSTALL_DIR}/${binary}"
+  if [ "${binary}" = "easymcp" ]; then
+    ln -sfn "${INSTALL_DIR}/${binary}" "${INSTALL_DIR}/mcpctl"
   fi
-  echo "Run '${BINARY} --help' to get started." >&2
   if [ "$CHECKSUMS" = "1" ]; then
-    echo "Verified and installed ${BINARY} ${version} to ${INSTALL_DIR}/${BINARY}" >&2
+    echo "Verified and installed ${binary} ${version} to ${INSTALL_DIR}/${binary}" >&2
   else
-    echo "Installed ${BINARY} ${version} to ${INSTALL_DIR}/${BINARY} (checksum verification disabled)" >&2
+    echo "Installed ${binary} ${version} to ${INSTALL_DIR}/${binary} (checksum verification disabled)" >&2
   fi
+}
+
+main() {
+  need_cmd mktemp
+  need_cmd tar
+
+  local os arch version tmpdir
+  os="$(detect_os)"
+  arch="$(detect_arch)"
+  version="$(resolve_version)"
+
+  # The runtime companion is only meaningful when installing the CLI. When a
+  # caller pins EASYMCP_BINARY to something else, honor exactly that binary.
+  local include_runtime="$INCLUDE_RUNTIME"
+  if [ "$BINARY" != "easymcp" ]; then
+    include_runtime="0"
+  fi
+
+  if [ "$DRY_RUN" = "1" ]; then
+    echo "Dry run OK" >&2
+    echo "  repo:         ${REPO}" >&2
+    echo "  version:      ${version}" >&2
+    echo "  asset:        ${BINARY}_${version#v}_${os}_${arch}.tar.gz" >&2
+    echo "  asset_url:    ${RELEASE_BASE}/${version}/${BINARY}_${version#v}_${os}_${arch}.tar.gz" >&2
+    if [ "$include_runtime" = "1" ]; then
+      echo "  runtime:      ${RUNTIME_BINARY}_${version#v}_${os}_${arch}.tar.gz (best-effort)" >&2
+      echo "  runtime_url:  ${RELEASE_BASE}/${version}/${RUNTIME_BINARY}_${version#v}_${os}_${arch}.tar.gz" >&2
+    else
+      echo "  runtime:      (skipped)" >&2
+    fi
+    echo "  checksums:    ${CHECKSUMS}" >&2
+    echo "  install_dir:  ${INSTALL_DIR}" >&2
+    exit 0
+  fi
+
+  tmpdir="$(mktemp -d)"
+  trap 'rm -rf "${tmpdir:-}"' EXIT
+
+  install_one_binary "$BINARY" "$os" "$arch" "$version" "$tmpdir" 1
+  if [ "$include_runtime" = "1" ]; then
+    install_one_binary "$RUNTIME_BINARY" "$os" "$arch" "$version" "$tmpdir" 0
+  fi
+
+  echo "Run '${BINARY} --help' to get started." >&2
 }
 
 main "$@"

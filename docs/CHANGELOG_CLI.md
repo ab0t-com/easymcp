@@ -10,6 +10,74 @@ Release evidence:
 - Release archives: [`../releases/downloads/`](../releases/downloads/)
 - Checksums: [`../releases/downloads/checksums.txt`](../releases/downloads/checksums.txt)
 
+## v0.5.0
+
+### Public Summary
+
+`v0.5.0` makes the Go static runtime (`easymcp-runtime`) the **default** for new EasyMCP instances. A plain `easymcp create` now registers a Go-runtime-backed instance — a single self-contained binary that reads the same YAML/JSON config the Docker image reads, with **no Docker daemon required** and no docker-in-docker. The Docker image (`ab0tcom/easymcp`) is fully supported and opt-in: pass `--runtime docker` to register a Docker-backed instance. This changes only the default for **new** instances — every existing instance keeps its current runtime, and every existing config, `easymcp` command, agent install, and `docker run` invocation keeps working exactly as it did on v0.4.1. Operators pick the runtime that fits the environment without rewriting configs or re-registering instances.
+
+### What Changed
+
+- The Go static runtime is now the default. `easymcp create <name> --openapi <url>` registers a Go-runtime-backed instance with no Docker daemon required — a single static binary that reads the exact same YAML/JSON config the Docker image reads. Suits first-time setup, worker containers, Kubernetes pods, restricted CI runners, and hosts without Docker.
+- The Docker image (`ab0tcom/easymcp`) is opt-in and fully supported. Pass `easymcp create --runtime docker` to register a Docker-backed instance; it stays the right choice for templated resources and OAuth login providers, and it is not deprecated.
+- Only the default for **new** instances moved. Existing instances keep their current runtime; every existing config, `easymcp` command, agent install, and `docker run` invocation keeps working exactly as it did on v0.4.1.
+- `easymcp ps` shows every instance in one table with a `RUNTIME` column so a mix of Go-backed and Docker-backed instances is visible at a glance. Swapping runtimes on an existing instance is a config edit, not a rewrite.
+- Both runtimes carry the same connection-safety hardening on the calls they make to your upstream API: they refuse to fetch from cloud-metadata addresses, cap an oversized upstream response so a runaway payload can't exhaust memory, drop your credentials when an upstream redirects to a different host, and require TLS 1.2 or newer. Wrapping an API on a private network still works — internal address ranges are allowed by default.
+- New tiny companion image `ab0tcom/easymcp-runtime:v0.5.0` — a distroless static build (~10 MB) with no shell and non-root by default. Drop it into a worker Dockerfile with `COPY --from=ab0tcom/easymcp-runtime:v0.5.0 /usr/local/bin/easymcp-runtime /usr/local/bin/` and skip the Docker daemon entirely.
+- Stdio child support: `easymcp instance add <name> --kind local_static_runtime --transport stdio --command easymcp-runtime` registers the binary as an agent-launched MCP child, alongside HTTP-backed instances in the same registry. `easymcp agent install claude-code` wires it into the agent config the same way an HTTP instance does.
+- Same wire contract on both runtimes: streamable-http on `/mcp` and `/mcp/facets/<facet>`, the `_meta.easymcp.io/facet` envelope on `tools/list`, the facets-first mount ordering, `/health` on `EASYMCP_HEALTH_PORT`, structured JSON or text logs to stderr. A config authored for either runtime runs on the other unchanged, and the Go runtime has been validated against real MCP clients over both the stdio and streamable-HTTP transports.
+- Swagger 2.0 auto-convert (v0.4.1) is carried through on the Go runtime — a `swaggo/swag`-generated Go API or a legacy Django/Flask/springfox service registers the same way on either runtime.
+
+### User Value
+
+- Get from an OpenAPI service to a working MCP server without installing Docker — the default path is a single static binary, so first-time setup has one fewer moving part.
+- Co-locate EasyMCP with a workload where a Docker daemon isn't available or is deliberately excluded — the exact case that used to require docker-in-docker.
+- Bake a ~7 MB static binary into a worker image instead of shipping a ~211 MB Python runtime alongside it. Edge and on-device deployments become viable.
+- Give an agent harness (Claude Code, Codex, others) a stdio MCP child it can launch directly, no long-running server to manage.
+- The same connection-safety protections apply no matter which runtime you choose — your credentials and your host are guarded on both.
+- Keep using the Docker image whenever you want it. `--runtime docker` opts any instance back into the Python image, and existing Docker-backed instances are untouched.
+
+### Upgrade
+
+```bash
+easymcp update --version v0.5.0 --yes
+```
+
+To pull the tiny runtime image directly:
+
+```bash
+docker pull ab0tcom/easymcp-runtime:v0.5.0
+```
+
+## v0.4.1
+
+### Public Summary
+
+`v0.4.1` makes `easymcp create --openapi <url>` "just work" against Swagger 2.0 specs. Pointing EasyMCP at a `swaggo/swag`-generated Go API, a legacy Django/Flask/springfox service, or any other Swagger 2.0 source used to succeed at create time and then crash-loop the container on start with deep pydantic errors — because the runtime parses OpenAPI 3.0/3.1 only. The runtime now auto-detects Swagger 2.0 at load time, converts it in-process to OpenAPI 3.0 before handing it to the MCP server, and logs one clear line so an operator can see it happen. OpenAPI 3.0/3.1 specs are unaffected — they take the same byte-for-byte path they always have. A single environment variable opts out of the conversion and restores a structured, actionable guidance error for teams that would rather pre-convert out of band.
+
+### What Changed
+
+- Auto-detect and convert Swagger 2.0 specs at load time. The runtime lifts `#/definitions/*` refs to `#/components/schemas/*`, translates `parameters: [{in: body, ...}]` into OpenAPI 3.x `requestBody`, synthesises `servers` from `host` + `basePath` + `schemes`, and translates root-level `produces` / `consumes` into per-operation media types. The un-faceted `/mcp` endpoint, the faceted `/mcp/facets/<facet>` endpoints, and the `_meta.easymcp.io/facet` envelope all see the converted spec.
+- Vendor extensions survive conversion verbatim. `x-facet: [<name>]` on a Swagger 2.0 operation continues to declare facet membership through the conversion, so the operator's facet layout carries over untouched.
+- Startup logs one INFO line — `detected Swagger 2.0 spec; converting to OpenAPI 3.0 in-process` — so an operator watching `docker logs` can see the runtime made the decision.
+- Lenient by default: common Swagger 2.0 spec bugs are patched during conversion (for example, a path parameter missing `required: true`) and every patched field is logged at INFO. Set `EASYMCP_CONVERT_STRICT=1` to disable patching and surface the offending field as a startup error instead.
+- Explicit opt-out: set `EASYMCP_AUTO_CONVERT_SWAGGER_2=0` (or `false`) to disable auto-conversion. In that mode the runtime raises the same structured guidance error you would have seen if the conversion had never existed — it names the `swagger` version found and points at `npx -y swagger2openapi --patch <spec> -o spec.v3.json` as the out-of-band remedy.
+- OpenAPI 3.0/3.1 specs are unaffected. The load path checks for `swagger: "2.0"` first and returns the input spec untouched on 3.x, so the 3.x tool surface is byte-for-byte identical to v0.4.0.
+
+### User Value
+
+- Wrap a `swaggo/swag`-generated Go API in one command. `easymcp create <name> --openapi <url>` on a Swagger 2.0 source now produces a healthy MCP server that lists tools on the first `easymcp start`, without an out-of-band `npx swagger2openapi` step.
+- Legacy Django, Flask, and springfox services register the same way modern OpenAPI 3.x services do. The still-large installed base of Swagger 2.0 tooling stops being a footgun for first-time operators.
+- Faceted routing continues to work on Swagger 2.0 sources. An operator who declares facets via `x-facet` on operations sees the same faceted `/mcp/facets/<facet>` endpoints and the same `_meta.easymcp.io/facet` envelope on `tools/list`, regardless of the source spec's version.
+- One clear log line answers "did EasyMCP touch my spec?" — no guessing from tracebacks, no diffing before-and-after JSON.
+- Teams that prefer to pre-convert out of band still can. Setting `EASYMCP_AUTO_CONVERT_SWAGGER_2=0` restores the structured guidance error, which names the spec version and the exact remedy command.
+
+### Upgrade
+
+```bash
+easymcp update --version v0.4.1 --yes
+```
+
 ## v0.4.0
 
 ### Public Summary

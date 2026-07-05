@@ -166,7 +166,7 @@ That is the core loop: create, start, check, discover, find, inspect, dry-run, c
 ## What You Get
 
 - **OpenAPI to MCP**: turn existing API contracts into agent-usable tools.
-- **Docker runtime**: run EasyMCP from a public image instead of cloning private server code.
+- **Runs anywhere, no daemon**: new servers run on a single lightweight static binary by default — no Docker daemon required — and the same config runs on the public Docker image whenever you want it (`--runtime docker`).
 - **CLI control plane**: create, start, stop, restart, inspect, discover, search, call, profile, and install MCP instances.
 - **Agent setup**: render, install, and verify MCP config for supported agent clients.
 - **Discovery by intent**: search for what you want to do instead of memorizing generated tool names.
@@ -176,7 +176,7 @@ That is the core loop: create, start, check, discover, find, inspect, dry-run, c
 
 ## Why the CLI Matters
 
-The Docker image runs the MCP server. The CLI makes it usable.
+The runtime runs the MCP server. The CLI makes it usable.
 
 The CLI handles the operator workflow around the runtime:
 
@@ -205,28 +205,32 @@ easymcp reload payment-service
 easymcp logs payment-service --tail 100
 ```
 
-## Docker Runtime
+## Runtimes
 
-The public runtime image is:
+EasyMCP runs your servers two ways from the exact same config, so you never rewrite anything to move between them.
+
+**Static binary (default).** New servers run on a single self-contained executable — no Docker daemon, no docker-in-docker. It reads the same config as the Docker image and speaks the same MCP wire protocol, so an agent cannot tell the difference. Drop it into a worker container, a CI runner, a Kubernetes pod, or any host without Docker. A tiny distroless image is published too, for `COPY --from` into your own build:
 
 ```bash
-docker pull ab0tcom/easymcp:v0.1.0
+docker pull ab0tcom/easymcp-runtime:v0.5.0
 ```
 
-The runtime is config-driven. You provide an EasyMCP config that points at an OpenAPI spec and describes auth, transport, and runtime behavior.
-
-Example direct Docker run:
+**Docker image (fully supported).** Prefer the container? Add `--runtime docker` and EasyMCP registers a Docker-backed instance instead. The image is config-driven — point it at an OpenAPI spec and describe auth, transport, and behavior:
 
 ```bash
+docker pull ab0tcom/easymcp:v0.5.0
+
 docker run --rm \
   -p 10000:10000 \
   -e EASYMCP_HEALTH_PORT=10000 \
   -v "$PWD/examples/server/petstore.yaml:/app/config.yaml:ro" \
-  ab0tcom/easymcp:v0.1.0 \
+  ab0tcom/easymcp:v0.5.0 \
   /app/config.yaml
 ```
 
-Most users should start with the CLI because it creates configs, chooses safe local ports, tracks runtime state, and prepares agent client config.
+Both runtimes carry the same connection-safety hardening: outbound calls refuse cloud-metadata addresses, oversized upstream responses are capped, and credentials are never forwarded across a redirect to a different host.
+
+Most users should start with the CLI either way — it creates configs, chooses safe local ports, tracks runtime state, and prepares agent client config. See [`docs/runtime-choice.md`](docs/runtime-choice.md) for a one-glance picker and [`docs/go-runtime.md`](docs/go-runtime.md) for the static-binary guide.
 
 ## Agent Workflows
 
