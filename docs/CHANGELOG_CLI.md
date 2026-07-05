@@ -10,6 +10,26 @@ Release evidence:
 - Release archives: [`../releases/downloads/`](../releases/downloads/)
 - Checksums: [`../releases/downloads/checksums.txt`](../releases/downloads/checksums.txt)
 
+## v0.5.3
+
+### Public Summary
+
+`v0.5.3` makes tool calls more resilient to transient upstream failures. When an upstream API momentarily rate-limits (429), returns a temporary server error (502/503/504), or drops the connection mid-request, EasyMCP now automatically retries the call a few times with backoff — on read and other safe operations only. Write operations (create/update/delete via POST/PATCH) are never retried, so a request is never accidentally run twice. Both runtimes — the default static binary and the Docker image — behave the same way. Nothing else changes from v0.5.2.
+
+### What Changed
+
+- Reliability: a transient upstream failure — a momentary 429 rate-limit, a temporary 502/503/504, or a dropped connection — on a read or other safe operation is now retried automatically with backoff, bounded to a few attempts, instead of surfacing as a failed tool call. Write operations (POST/PATCH, and deletes) are never retried, to avoid running a change twice.
+
+### User Value
+
+- A brief hiccup on the upstream API recovers on its own for safe operations, so your agent sees fewer spurious tool-call failures — while anything that changes data still runs exactly once.
+
+### Upgrade
+
+```bash
+easymcp update --version v0.5.3 --yes
+```
+
 ## v0.5.2
 
 ### Public Summary

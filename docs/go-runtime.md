@@ -27,7 +27,7 @@ easymcp-runtime --help
 If you only need the runtime binary (for example, to bake it into a worker image), grab it directly from the release page or pull the tiny runtime image:
 
 ```bash
-docker pull ab0tcom/easymcp-runtime:v0.5.2
+docker pull ab0tcom/easymcp-runtime:v0.5.3
 ```
 
 The image is a distroless static build (~10 MB) — no shell, no package manager, non-root by default.
@@ -78,7 +78,7 @@ Add two lines to your worker's Dockerfile:
 
 ```dockerfile
 # in your worker image
-FROM ab0tcom/easymcp-runtime:v0.5.2 AS easymcp-runtime
+FROM ab0tcom/easymcp-runtime:v0.5.3 AS easymcp-runtime
 COPY --from=easymcp-runtime /usr/local/bin/easymcp-runtime /usr/local/bin/easymcp-runtime
 ```
 
@@ -98,7 +98,7 @@ spec:
   - name: worker
     image: myco/worker:v1.2.3
   - name: easymcp
-    image: ab0tcom/easymcp-runtime:v0.5.2
+    image: ab0tcom/easymcp-runtime:v0.5.3
     args: ["/etc/easymcp/config.yaml"]
     volumeMounts:
     - name: easymcp-config
